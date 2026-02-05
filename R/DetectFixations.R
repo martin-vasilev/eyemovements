@@ -19,8 +19,8 @@
 #' @return A data frame with one row per detected fixation and the following columns:
 #' \describe{
 #'   \item{fix_id}{Sequential fixation identifier within the trial.}
-#'   \item{start_fix}{Start time of the fixation (in milliseconds, eye-tracker internal clock).}
-#'   \item{end_fix}{End time of the fixation (in milliseconds).}
+#'   \item{fix_start}{Start time of the fixation (in milliseconds, eye-tracker internal clock).}
+#'   \item{fix_end}{End time of the fixation (in milliseconds).}
 #'   \item{x}{Mean horizontal gaze position of all samples in the fixation (in pixels).}
 #'   \item{y}{Mean vertical gaze position of all samples in the fixation (in pixels).}
 #'   \item{FixDur}{Fixation duration in milliseconds, computed as
@@ -42,7 +42,7 @@
 #' )
 #'
 #' head(fixations)
-#'
+#' @source Salvucci, D. D., & Goldberg, J. H. (2000, November). Identifying fixations and saccades in eye-tracking protocols. In Proceedings of the 2000 symposium on Eye tracking research & applications (pp. 71-78).
 #' @export
 
 
@@ -119,8 +119,8 @@ DetectFixations<- function(data, method= "I-DT", dva_x= 0.0187,
         fix,
         data.frame(
           'fix_id' = fix_id,
-          'start_fix'   = data$time[start],
-          'end_fix'   = data$time[last_good_end],
+          'fix_start'   = data$time[start],
+          'fix_end'   = data$time[last_good_end],
           'x'      = mean(data$x[start:last_good_end], na.rm=TRUE),
           'y'      = mean(data$y[start:last_good_end], na.rm=TRUE),
           'FixDur' = data$time[last_good_end] - data$time[start],
