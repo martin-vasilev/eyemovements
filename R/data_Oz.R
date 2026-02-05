@@ -2,9 +2,9 @@
 #' Example raw eye position data  (Eyelink 1000)
 #'
 #'
-#' This data containscontains one trial of a participant
+#' This data contains one trial of a participant
 #' reading a passage from the "Little Wizard Stories of Oz".
-#' The data is taken from Slattery & Vasilev (2019) and was
+#' The data is taken from Slattery and Vasilev (2019) and was
 #' recorded with an Eyelink 1000 (at 1000 Hz).
 #'
 #'
