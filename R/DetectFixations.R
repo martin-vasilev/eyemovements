@@ -1,5 +1,15 @@
 
-#' Detect fixations from raw eye sample data
+#' Detect fixations from eye samples
+#'
+#'This function detects fixations from raw eye position samples
+#'using a number of possible detection algorithms. Most algorithms
+#'require calculations based on visual angle (see
+#' \link[=VisualAngle]{VisualAngle}). As a result, the degrees of visual
+#' angle per pixel need to be provided for the x- and y-dimensions (
+#'\code{dva_x} and \code{dva_y}).
+#'
+#' The function currently supports the following detection methods:
+#' - dispersion-threshold identification (I-DT)
 #'
 #' @author Martin R. Vasilev, Yixin Ding
 #'
@@ -23,7 +33,7 @@
 #'   \item{fix_end}{End time of the fixation (in milliseconds).}
 #'   \item{x}{Mean horizontal gaze position of all samples in the fixation (in pixels).}
 #'   \item{y}{Mean vertical gaze position of all samples in the fixation (in pixels).}
-#'   \item{FixDur}{Fixation duration in milliseconds, computed as
+#'   \item{fix_dur}{Fixation duration in milliseconds, computed as
 #'   \code{end_fix - start_fix}.}
 #'   \item{dispersion_deg}{Total spatial dispersion of samples in the fixation,
 #'   computed as the sum of horizontal and vertical dispersion in degrees of visual angle
@@ -123,7 +133,7 @@ DetectFixations<- function(data, method= "I-DT", dva_x= 0.0187,
           'fix_end'   = data$time[last_good_end],
           'x'      = mean(data$x[start:last_good_end], na.rm=TRUE),
           'y'      = mean(data$y[start:last_good_end], na.rm=TRUE),
-          'FixDur' = data$time[last_good_end] - data$time[start],
+          'fix_dur' = data$time[last_good_end] - data$time[start],
           'dispersion_deg' = dispersion_deg(start, last_good_end),
           'n_samples'  = last_good_end - start+1
         ))

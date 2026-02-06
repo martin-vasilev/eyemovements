@@ -2,7 +2,7 @@
 % Please edit documentation in R/DetectFixations.R
 \name{DetectFixations}
 \alias{DetectFixations}
-\title{Detect fixations from raw eye sample data}
+\title{Detect fixations from eye samples}
 \source{
 Salvucci, D. D., & Goldberg, J. H. (2000, November). Identifying fixations and saccades in eye-tracking protocols. In Proceedings of the 2000 symposium on Eye tracking research & applications (pp. 71-78).
 }
@@ -38,7 +38,7 @@ A data frame with one row per detected fixation and the following columns:
 \item{fix_end}{End time of the fixation (in milliseconds).}
 \item{x}{Mean horizontal gaze position of all samples in the fixation (in pixels).}
 \item{y}{Mean vertical gaze position of all samples in the fixation (in pixels).}
-\item{FixDur}{Fixation duration in milliseconds, computed as
+\item{fix_dur}{Fixation duration in milliseconds, computed as
 \code{end_fix - start_fix}.}
 \item{dispersion_deg}{Total spatial dispersion of samples in the fixation,
 computed as the sum of horizontal and vertical dispersion in degrees of visual angle
@@ -47,7 +47,18 @@ computed as the sum of horizontal and vertical dispersion in degrees of visual a
 }
 }
 \description{
-Detect fixations from raw eye sample data
+This function detects fixations from raw eye position samples
+using a number of possible detection algorithms. Most algorithms
+require calculations based on visual angle (see
+\link[=VisualAngle]{VisualAngle}). As a result, the degrees of visual
+angle per pixel need to be provided for the x- and y-dimensions (
+\code{dva_x} and \code{dva_y}).
+}
+\details{
+The function currently supports the following detection methods:
+\itemize{
+\item dispersion-threshold identification (I-DT)
+}
 }
 \examples{
 data("data_Oz")
