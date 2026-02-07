@@ -53,11 +53,9 @@ require calculations based on visual angle (see
 \link[=VisualAngle]{VisualAngle}). As a result, the degrees of visual
 angle per pixel need to be provided for the x- and y-dimensions (
 \code{dva_x} and \code{dva_y}).
-}
-\details{
 The function currently supports the following detection methods:
 \itemize{
-\item dispersion-threshold identification (I-DT)
+\item Identification by Dispersion Threshold  (I-DT)
 }
 }
 \examples{

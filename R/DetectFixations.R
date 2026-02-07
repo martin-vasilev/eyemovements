@@ -7,9 +7,8 @@
 #' \link[=VisualAngle]{VisualAngle}). As a result, the degrees of visual
 #' angle per pixel need to be provided for the x- and y-dimensions (
 #'\code{dva_x} and \code{dva_y}).
-#'
 #' The function currently supports the following detection methods:
-#' - dispersion-threshold identification (I-DT)
+#' - Identification by Dispersion Threshold  (I-DT)
 #'
 #' @author Martin R. Vasilev, Yixin Ding
 #'
