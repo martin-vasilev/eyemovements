@@ -9,18 +9,20 @@ Salvucci, D. D., & Goldberg, J. H. (2000, November). Identifying fixations and s
 \usage{
 DetectFixations(
   data,
-  method = "I-DT",
+  method = "I-VT",
   dva_x = 0.0187,
   dva_y = 0.0192,
   window_threshold = 100,
-  disp_threshold = 1
+  disp_threshold = 1,
+  vel_threshold = 40,
+  min_fix_dur = 50
 )
 }
 \arguments{
 \item{data}{A data frame containing the raw data samples.
 Must include at least the following columns: "time", "x", and "y".}
 
-\item{method}{The fixation detection algorithm to use (I-DT)}
+\item{method}{The fixation detection algorithm to use (I-DT or I-VT)}
 
 \item{dva_x}{Degrees of visual angle per pixel (x dimension)}
 
@@ -29,6 +31,10 @@ Must include at least the following columns: "time", "x", and "y".}
 \item{window_threshold}{Minimum fixation duration window threshold in milliseconds (I-DT algorithm)}
 
 \item{disp_threshold}{Minimum sample disperson threshold in visual angle (I-DT algorithm)}
+
+\item{vel_threshold}{Velocity threshold in degrees/second (I-VT algorithm).}
+
+\item{min_fix_dur}{Minimum fixation duration (in ms) to extract}
 }
 \value{
 A data frame with one row per detected fixation and the following columns:
@@ -43,6 +49,7 @@ A data frame with one row per detected fixation and the following columns:
 \item{dispersion_deg}{Total spatial dispersion of samples in the fixation,
 computed as the sum of horizontal and vertical dispersion in degrees of visual angle
 (I-DT algorithm).}
+\item{velocity}{ Average sample-to-sample velocity within the fixation in degrees per second (I-VT algorithm)
 \item{n_samples}{Number of raw eye-tracking samples contributing to the fixation.}
 }
 }
@@ -61,10 +68,22 @@ The function currently supports the following detection methods:
 \examples{
 data("data_Oz")
 
+# I-DT method:
+
 fixations <- DetectFixations(
   data = data_Oz, method = "I-DT",
   dva_x = 0.0187, dva_y = 0.0192,
   window_threshold = 100, disp_threshold = 1
+)
+
+head(fixations)
+
+# I-VT method:
+
+fixations <- DetectFixations(
+  data = data_Oz, method = "I-VT",
+  dva_x = 0.0187, dva_y = 0.0192,
+  vel_threshold = 40, min_fix_dur = 50
 )
 
 head(fixations)
