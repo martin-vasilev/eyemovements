@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Eye-Tracking Manual Labeler</title>
+<style>
+:root{
+  --bg:#f7f8fb; --panel:#fff; --border:#d8dde8; --text:#1f2937; --muted:#6b7280;
+  --accent:#2563eb; --fix:#16a34a; --sac:#dc2626; --unc:#d97706; --unl:#9ca3af;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,Helvetica,sans-serif;color:var(--text);background:var(--bg)}
+header{padding:16px 20px;background:#111827;color:#fff}
+header h1{margin:0 0 6px 0;font-size:24px}
+header p{margin:0;color:#d1d5db;font-size:14px}
+.container{display:grid;grid-template-columns:360px 1fr;gap:16px;padding:16px}
+.left{display:flex;flex-direction:column;gap:16px}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+h2{font-size:16px;margin:0 0 12px 0} h3{font-size:14px;margin:16px 0 8px 0}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+label{font-size:13px;color:var(--muted)}
+select,input[type="number"],input[type="text"],button,input[type="file"]{font-size:14px}
+select,input[type="number"],input[type="text"]{width:100%;padding:7px 8px;border:1px solid var(--border);border-radius:8px;background:#fff}
+button{border:1px solid var(--border);background:#fff;border-radius:8px;padding:8px 10px;cursor:pointer}
+button:hover{background:#f3f4f6}
+button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+button.fix{border-color:var(--fix);color:var(--fix);font-weight:700}
+button.sac{border-color:var(--sac);color:var(--sac);font-weight:700}
+button.unc{border-color:var(--unc);color:var(--unc);font-weight:700}
+button.unl{border-color:var(--unl);color:#4b5563;font-weight:700}
+.small{font-size:12px;color:var(--muted)}
+.status{font-size:13px;color:var(--muted);min-height:18px}
+canvas{width:100%;display:block;background:#fff;border:1px solid var(--border);border-radius:8px;user-select:none;-webkit-user-select:none}
+#overviewCanvas{height:90px;margin-bottom:10px}
+#timeCanvas{height:390px}
+#spaceCanvas{height:260px}
+.canvas-wrap{display:grid;grid-template-rows:auto auto 1fr;gap:12px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.legend .sw{width:14px;height:14px;border-radius:3px;display:inline-block;vertical-align:middle;margin-right:5px}
+.segment-table-wrap{max-height:310px;overflow:auto;border:1px solid var(--border);border-radius:8px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{border-bottom:1px solid #e5e7eb;padding:6px 4px;text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:600;position:sticky;top:0;background:#fff}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}
+.badge.fix{background:#dcfce7;color:#166534}.badge.sac{background:#fee2e2;color:#991b1b}.badge.unc{background:#ffedd5;color:#9a3412}.badge.unl{background:#f3f4f6;color:#4b5563}
+.help kbd{background:#111827;color:#fff;border-radius:4px;padding:2px 5px;font-size:11px}
+.mono{font-family:Consolas,Monaco,monospace}
+.active-row{background:rgba(37,99,235,.08)}
+@media (max-width:1100px){.container{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Eye-Tracking Manual Labeler</h1>
+  <p>Load CSV gaze samples, navigate long trials, label fixation/saccade/unclear segments, and edit existing segments directly.</p>
+</header>
+
+<div class="container">
+  <div class="left">
+    <div class="panel">
+      <h2>1) Load data</h2>
+      <div class="row"><input id="csvFile" type="file" accept=".csv,.tsv,.txt" /></div>
+      <div class="small">Expected columns: time, x, y, and optionally trial.</div>
+      <h3>Column mapping</h3>
+      <div class="grid">
+        <div><label for="timeCol">Time column</label><select id="timeCol"></select></div>
+        <div><label for="xCol">X column</label><select id="xCol"></select></div>
+        <div><label for="yCol">Y column</label><select id="yCol"></select></div>
+        <div><label for="trialCol">Trial column</label><select id="trialCol"></select></div>
+        <div><label for="delimiter">Delimiter</label>
+          <select id="delimiter">
+            <option value="auto">Auto detect</option><option value=",">Comma</option><option value="\t">Tab</option><option value=";">Semicolon</option>
+          </select>
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <button id="applyMapping" class="primary">Apply mapping</button>
+        <button id="resetView">Reset view</button>
+      </div>
+      <div class="status" id="dataStatus"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Navigation & zoom</h2>
+      <div class="grid">
+        <div><label for="panStep">Pan step (% of window)</label><input id="panStep" type="number" value="25" min="1" max="100" step="1" /></div>
+        <div><label for="zoomFactor">Keyboard zoom factor</label><input id="zoomFactor" type="number" value="1.5" min="1.1" max="10" step="0.1" /></div>
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <button id="panLeft">◀ Pan left</button><button id="panRight">Pan right ▶</button>
+      </div>
+      <div class="row">
+        <button id="zoomIn">＋ Zoom in</button><button id="zoomOut">－ Zoom out</button><button id="zoomFull">Full trial</button>
+      </div>
+      <div class="small">Use the overview navigator, mouse wheel, or keyboard shortcuts.</div>
+    </div>
+
+    <div class="panel">
+      <h2>Trial navigation</h2>
+      <div class="grid">
+        <div><label for="trialSelect">Current trial</label><select id="trialSelect"></select></div>
+        <div><label for="trialInfo">Trial info</label><input id="trialInfo" type="text" readonly value="No trial column loaded" /></div>
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <button id="prevTrial">◀ Previous trial</button><button id="nextTrial">Next trial ▶</button>
+      </div>
+      <div class="small">If a trial column is provided, the app filters to one trial at a time.</div>
+    </div>
+
+    <div class="panel">
+      <h2>2) Label selected range</h2>
+      <div class="small">Drag to create a selection. If part of the dragged range overlaps an existing segment, the app creates the new segment only from the first undefined sample onward.</div>
+      <div class="row" style="margin-top:10px;">
+        <button id="labelFix" class="fix">Fixation (F)</button>
+        <button id="labelSac" class="sac">Saccade (S)</button>
+        <button id="labelUnclear" class="unc">Unclear (U)</button>
+        <button id="labelUnl" class="unl">Clear label (C)</button>
+      </div>
+      <div class="row">
+        <button id="zoomSelection">Zoom to selection</button>
+        <button id="deleteLast">Delete last segment</button>
+      </div>
+      <div class="row">
+        <label><input id="chainSegments" type="checkbox" checked /> Chain segments from previous end</label>
+        <button id="selectFromPrevEnd">Start selection at previous end</button>
+      </div>
+      <div class="status" id="selectionStatus"></div>
+      <div class="small">Editing tip: click a segment once to activate it. Then drag the large <strong>S</strong> / <strong>E</strong> handles shown under the lower plot, or use the edit buttons below. New segments drawn across existing ones are automatically trimmed to the undefined part of the range. Labels cannot overlap: dragged boundaries stop outside neighbouring segments.</div>
+      <div class="row">
+        <button id="editStartEarlier">← Start</button>
+        <button id="editStartLater">Start →</button>
+        <button id="editEndEarlier">← End</button>
+        <button id="editEndLater">End →</button>
+        <button id="moveSegLeft">◀ Segment</button>
+        <button id="moveSegRight">Segment ▶</button>
+      </div>
+
+      <h3>Display options</h3>
+      <div class="grid">
+        <div><label for="velocityThreshold">Velocity preview threshold</label><input id="velocityThreshold" type="number" value="30" step="0.1" /></div>
+        <div><label for="pointStride">Spatial plot stride</label><input id="pointStride" type="number" value="1" min="1" step="1" /></div>
+        <div><label for="snapMode">Boundary snapping</label>
+          <select id="snapMode">
+            <option value="sample" selected>Nearest sample</option>
+            <option value="velocity">Nearest velocity change</option>
+            <option value="none">No snapping</option>
+          </select>
+        </div>
+        <div><label for="snapWindow">Snap window</label><input id="snapWindow" type="number" value="25" min="0" step="0.1" /></div>
+      </div>
+      <div class="row" style="margin-top:10px;"><button id="recompute">Recompute preview</button></div>
+      <div class="small">Dragged boundaries can snap to the nearest sample or local velocity change.</div>
+    </div>
+
+    <div class="panel">
+      <h2>3) Export</h2>
+      <div class="row"><button id="exportSegments" class="primary">Export segment labels CSV</button><button id="exportSamples">Export sample-level CSV</button></div>
+      <div class="small">Exports include a trial column when trials are present.</div>
+      <h3>Import labels</h3>
+      <div class="row"><input id="labelsFile" type="file" accept=".csv,.tsv,.txt" /></div>
+      <div class="small">Expected columns: trial (optional), start_time, end_time, label.</div>
+    </div>
+
+    <div class="panel help">
+      <h2>Keyboard shortcuts</h2>
+      <div class="small">
+        <div><kbd>F</kbd> fixation</div>
+        <div><kbd>S</kbd> saccade</div>
+        <div><kbd>U</kbd> unclear</div>
+        <div><kbd>C</kbd> clear label</div>
+        <div><kbd>R</kbd> or <kbd>1</kbd> full trial</div>
+        <div><kbd>Z</kbd> zoom to selection</div>
+        <div><kbd>←</kbd> / <kbd>→</kbd> pan left/right</div>
+        <div><kbd>+</kbd> / <kbd>-</kbd> zoom in/out</div>
+        <div><kbd>,</kbd> / <kbd>.</kbd> previous/next trial</div>
+        <div><kbd>N</kbd> start next selection at previous end</div>
+        <div><kbd>A</kbd> / <kbd>D</kbd> move start earlier/later</div>
+        <div><kbd>J</kbd> / <kbd>L</kbd> move end earlier/later</div>
+        <div><kbd>M</kbd> cycle snapping mode</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="canvas-wrap">
+    <div class="panel">
+      <div class="legend">
+        <span><span class="sw" style="background:var(--fix)"></span>Fixation</span>
+        <span><span class="sw" style="background:var(--sac)"></span>Saccade</span>
+        <span><span class="sw" style="background:var(--unc)"></span>Unclear</span>
+        <span><span class="sw" style="background:var(--unl)"></span>Unlabeled</span>
+      </div>
+      <canvas id="overviewCanvas" width="1200" height="90"></canvas>
+      <canvas id="timeCanvas" width="1200" height="390"></canvas>
+      <div class="small mono" id="hoverInfo"></div>
+    </div>
+
+    <div class="panel">
+      <div class="small">Spatial gaze plot for the currently visible time window.</div>
+      <canvas id="spaceCanvas" width="1200" height="260"></canvas>
+    </div>
+
+    <div class="panel">
+      <div class="small">Click a row to activate a segment for editing.</div>
+      <div class="segment-table-wrap">
+        <table id="segmentsTable">
+          <thead><tr><th>#</th><th>Label</th><th>Start</th><th>End</th><th>Duration</th><th>Adjust</th><th>Delete</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const state = {
+  rawRows: [], columns: [],
+  allData: [], data: [],
+  trialValues: [], currentTrial: null,
+  labelsByTrial: {}, labels: [],
+  selection: null, hover: null, visibleRange: null,
+  dragMode: null, dragStartPx: null, overviewDragOffset: null,
+  activeSegmentIdx: null, handleRects: [], isPointerDownOnCanvas: false,
+};
+
+const overviewCanvas = document.getElementById('overviewCanvas');
+const timeCanvas = document.getElementById('timeCanvas');
+const spaceCanvas = document.getElementById('spaceCanvas');
+const octx = overviewCanvas.getContext('2d');
+const tctx = timeCanvas.getContext('2d');
+const sctx = spaceCanvas.getContext('2d');
+
+const els = {
+  csvFile: document.getElementById('csvFile'),
+  labelsFile: document.getElementById('labelsFile'),
+  timeCol: document.getElementById('timeCol'),
+  xCol: document.getElementById('xCol'),
+  yCol: document.getElementById('yCol'),
+  trialCol: document.getElementById('trialCol'),
+  delimiter: document.getElementById('delimiter'),
+  applyMapping: document.getElementById('applyMapping'),
+  resetView: document.getElementById('resetView'),
+  dataStatus: document.getElementById('dataStatus'),
+  panStep: document.getElementById('panStep'),
+  zoomFactor: document.getElementById('zoomFactor'),
+  panLeft: document.getElementById('panLeft'),
+  panRight: document.getElementById('panRight'),
+  zoomIn: document.getElementById('zoomIn'),
+  zoomOut: document.getElementById('zoomOut'),
+  zoomFull: document.getElementById('zoomFull'),
+  trialSelect: document.getElementById('trialSelect'),
+  trialInfo: document.getElementById('trialInfo'),
+  prevTrial: document.getElementById('prevTrial'),
+  nextTrial: document.getElementById('nextTrial'),
+  selectionStatus: document.getElementById('selectionStatus'),
+  hoverInfo: document.getElementById('hoverInfo'),
+  velocityThreshold: document.getElementById('velocityThreshold'),
+  pointStride: document.getElementById('pointStride'),
+  snapMode: document.getElementById('snapMode'),
+  snapWindow: document.getElementById('snapWindow'),
+  recompute: document.getElementById('recompute'),
+  exportSegments: document.getElementById('exportSegments'),
+  exportSamples: document.getElementById('exportSamples'),
+  zoomSelection: document.getElementById('zoomSelection'),
+  deleteLast: document.getElementById('deleteLast'),
+  chainSegments: document.getElementById('chainSegments'),
+  selectFromPrevEnd: document.getElementById('selectFromPrevEnd'),
+  editStartEarlier: document.getElementById('editStartEarlier'),
+  editStartLater: document.getElementById('editStartLater'),
+  editEndEarlier: document.getElementById('editEndEarlier'),
+  editEndLater: document.getElementById('editEndLater'),
+  moveSegLeft: document.getElementById('moveSegLeft'),
+  moveSegRight: document.getElementById('moveSegRight'),
+  labelFix: document.getElementById('labelFix'),
+  labelSac: document.getElementById('labelSac'),
+  labelUnclear: document.getElementById('labelUnclear'),
+  labelUnl: document.getElementById('labelUnl'),
+  segmentsTable: document.querySelector('#segmentsTable tbody')
+};
+
+function setStatus(el, msg){ el.textContent = msg || ''; }
+function nice(n){ return Number.isFinite(n) ? (Math.abs(n) >= 1000 ? n.toFixed(1) : n.toFixed(2)) : ''; }
+function labelColor(label){
+  return label === 'fixation' ? '#16a34a'
+    : label === 'saccade' ? '#dc2626'
+    : label === 'unclear' ? '#d97706'
+    : '#9ca3af';
+}
+function hexToRgba(hex, a){ const n=parseInt(hex.replace('#',''),16); return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`; }
+
+function guessDelimiter(text){
+  const line = text.split(/\r?\n/).find(x => x.trim().length) || '';
+  const opts = [',','\t',';'].map(d => ({d, n:(line.match(new RegExp(d === '\t' ? '\\t' : '\\' + d, 'g'))||[]).length}));
+  opts.sort((a,b)=>b.n-a.n); return opts[0].n > 0 ? opts[0].d : ',';
+}
+function parseDelimited(text, d){
+  const rows=[]; let row=[], field='', q=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i], n=text[i+1];
+    if(c === '"'){ if(q && n === '"'){ field += '"'; i++; } else q=!q; }
+    else if(c === d && !q){ row.push(field); field=''; }
+    else if((c === '\n' || c === '\r') && !q){ if(c === '\r' && n === '\n') i++; row.push(field); if(row.some(v=>v!=='')) rows.push(row); row=[]; field='';}
+    else field += c;
+  }
+  row.push(field); if(row.some(v=>v!=='')) rows.push(row); return rows;
+}
+function inferColumn(columns, candidates){
+  const lower=columns.map(c=>c.toLowerCase().trim());
+  for(const cand of candidates){ const idx=lower.findIndex(c=>c===cand || c.includes(cand)); if(idx>=0) return columns[idx]; }
+  return '';
+}
+function populateColumnSelectors(columns){
+  ['timeCol','xCol','yCol','trialCol'].forEach(id => {
+    const sel = els[id]; sel.innerHTML = '';
+    const opt = document.createElement('option'); opt.value=''; opt.textContent = id === 'trialCol' ? '(none)' : 'Select column'; sel.appendChild(opt);
+    columns.forEach(c => { const o=document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o); });
+  });
+  els.timeCol.value = inferColumn(columns, ['time','timestamp','t']);
+  els.xCol.value = inferColumn(columns, ['x','gaze_x','screen_x']);
+  els.yCol.value = inferColumn(columns, ['y','gaze_y','screen_y']);
+  const trialGuess = inferColumn(columns, ['trial','trialid','trial_id','segment','item']);
+  if(trialGuess) els.trialCol.value = trialGuess;
+}
+function loadRawText(text){
+  const d = els.delimiter.value === 'auto' ? guessDelimiter(text) : els.delimiter.value;
+  const rows = parseDelimited(text, d).filter(r => r.length);
+  if(rows.length < 2){ setStatus(els.dataStatus, 'Could not parse the file.'); return; }
+  state.columns = rows[0].map(x => String(x).trim());
+  state.rawRows = rows.slice(1);
+  populateColumnSelectors(state.columns);
+  setStatus(els.dataStatus, `Loaded ${state.rawRows.length} rows.`);
+}
+
+function applyMapping(){
+  if(!state.rawRows.length) return;
+  const ti = state.columns.indexOf(els.timeCol.value), xi = state.columns.indexOf(els.xCol.value), yi = state.columns.indexOf(els.yCol.value);
+  const tri = els.trialCol.value ? state.columns.indexOf(els.trialCol.value) : -1;
+  if(ti < 0 || xi < 0 || yi < 0){ setStatus(els.dataStatus, 'Please map time, x, and y.'); return; }
+
+  const data = [];
+  for(const row of state.rawRows){
+    const time = Number(String(row[ti]).trim());
+    const x = Number(String(row[xi]).trim());
+    const y = Number(String(row[yi]).trim());
+    const trial = tri >= 0 ? String(row[tri]).trim() : '__all_trials__';
+    if(Number.isFinite(time) && Number.isFinite(x) && Number.isFinite(y)) data.push({time,x,y,trial});
+  }
+  data.sort((a,b) => a.trial === b.trial ? a.time - b.time : String(a.trial).localeCompare(String(b.trial), undefined, {numeric:true, sensitivity:'base'}));
+  let prev = null;
+  for(const d of data){
+    if(prev && prev.trial === d.trial){
+      const dt = d.time - prev.time, dx = d.x - prev.x, dy = d.y - prev.y;
+      d.velocity = dt > 0 ? Math.sqrt(dx*dx + dy*dy) / dt : 0;
+    } else d.velocity = 0;
+    prev = d;
+  }
+  state.allData = data;
+  state.trialValues = [...new Set(data.map(d => d.trial))];
+  state.labelsByTrial = {};
+  populateTrialSelector();
+  setCurrentTrial(state.trialValues[0] || null);
+  setStatus(els.dataStatus, `Mapped ${data.length} valid samples across ${state.trialValues.length} trial(s).`);
+}
+
+function populateTrialSelector(){
+  els.trialSelect.innerHTML = '';
+  state.trialValues.forEach(trial => { const o=document.createElement('option'); o.value=trial; o.textContent=trial; els.trialSelect.appendChild(o); });
+}
+function saveCurrentTrialLabels(){ if(state.currentTrial != null) state.labelsByTrial[state.currentTrial] = JSON.parse(JSON.stringify(state.labels)); }
+function clearActiveEditing(){ state.activeSegmentIdx = null; state.handleRects = []; }
+function setCurrentTrial(trial){
+  saveCurrentTrialLabels();
+  state.currentTrial = trial;
+  state.data = state.allData.filter(d => d.trial === trial);
+  state.labels = JSON.parse(JSON.stringify(state.labelsByTrial[trial] || []));
+  state.selection = null; state.hover = null; state.dragMode = null; clearActiveEditing();
+  state.visibleRange = state.data.length ? [state.data[0].time, state.data[state.data.length-1].time] : null;
+  if(state.currentTrial != null) els.trialSelect.value = state.currentTrial;
+  refreshAll();
+}
+function moveTrial(step){
+  if(!state.trialValues.length || state.currentTrial == null) return;
+  const idx = state.trialValues.indexOf(state.currentTrial), j = Math.max(0, Math.min(state.trialValues.length - 1, idx + step));
+  if(j !== idx) setCurrentTrial(state.trialValues[j]);
+}
+
+function getRanges(){
+  if(!state.data.length) return null;
+  const xs=state.data.map(d=>d.x), ys=state.data.map(d=>d.y), vs=state.data.map(d=>d.velocity||0);
+  return {minX:Math.min(...xs), maxX:Math.max(...xs), minY:Math.min(...ys), maxY:Math.max(...ys), maxV:Math.max(...vs)};
+}
+function getVisibleData(){
+  if(!state.visibleRange) return [];
+  const [a,b] = state.visibleRange; return state.data.filter(d => d.time >= a && d.time <= b);
+}
+function getTypicalDt(){
+  if(state.data.length < 2) return 1;
+  const diffs=[]; for(let i=1;i<Math.min(state.data.length,100);i++){ const dt=state.data[i].time - state.data[i-1].time; if(dt > 0) diffs.push(dt); }
+  diffs.sort((a,b)=>a-b); return diffs[Math.floor(diffs.length/2)] || 1;
+}
+function clampVisibleRange([a,b]){
+  if(!state.data.length) return null;
+  const minT = state.data[0].time, maxT = state.data[state.data.length-1].time;
+  let span = Math.max(b-a, getTypicalDt());
+  a = Math.max(minT, a); b = a + span;
+  if(b > maxT){ b = maxT; a = Math.max(minT, b - span); }
+  return [a,b];
+}
+function panVisible(dir, mult=1){
+  if(!state.visibleRange) return;
+  const frac = (Number(els.panStep.value)||25) / 100, span = state.visibleRange[1]-state.visibleRange[0], step = span*frac*dir*mult;
+  state.visibleRange = clampVisibleRange([state.visibleRange[0]+step, state.visibleRange[1]+step]); refreshAll();
+}
+function zoomVisible(factor, anchor=null){
+  if(!state.visibleRange) return;
+  const [a,b]=state.visibleRange, span=b-a, c=anchor==null?(a+b)/2:anchor, rel=(c-a)/(span||1), newSpan=Math.max(getTypicalDt(), span/factor);
+  const na = c - newSpan*rel, nb = na + newSpan;
+  state.visibleRange = clampVisibleRange([na,nb]); refreshAll();
+}
+function resetView(){ if(state.data.length){ state.visibleRange=[state.data[0].time, state.data[state.data.length-1].time]; state.selection=null; refreshAll(); } }
+function zoomSelection(){ if(state.selection) { state.visibleRange = clampVisibleRange([...state.selection]); refreshAll(); } }
+
+function timeToPx(t, plot){ const [a,b]=state.visibleRange; return plot.left + (t-a)/((b-a)||1)*plot.width; }
+function pxToTime(x, plot){ const [a,b]=state.visibleRange; return a + Math.max(0, Math.min(1, (x-plot.left)/plot.width))*(b-a); }
+function scale(v, min, max, top, bottom){ const f=(v-min)/((max-min)||1); return bottom - f*(bottom-top); }
+
+function getSnapWindow(){ const v=Number(els.snapWindow.value); return Number.isFinite(v)&&v>=0?v:0; }
+function snapTimeToNearestSample(t){
+  if(!state.data.length) return t;
+  let best=t, dist=Infinity; for(const d of state.data){ const dd=Math.abs(d.time-t); if(dd<dist){dist=dd;best=d.time;} }
+  return dist <= getSnapWindow() || getSnapWindow() === 0 ? best : t;
+}
+function snapTimeToVelocityChange(t){
+  const thr = Number(els.velocityThreshold.value)||0, win = getSnapWindow();
+  if(state.data.length < 3) return snapTimeToNearestSample(t);
+  let best=t, dist=Infinity;
+  for(let i=1;i<state.data.length-1;i++){
+    const p=state.data[i-1], c=state.data[i], n=state.data[i+1];
+    const crossed = (p.velocity < thr && c.velocity >= thr) || (p.velocity >= thr && c.velocity < thr);
+    const local = (c.velocity >= p.velocity && c.velocity >= n.velocity) || (c.velocity <= p.velocity && c.velocity <= n.velocity);
+    if(crossed || local){ const dd=Math.abs(c.time-t); if(dd<dist){dist=dd; best=c.time;} }
+  }
+  return dist <= win || win === 0 ? best : snapTimeToNearestSample(t);
+}
+function snapBoundaryTime(t){
+  if(els.snapMode.value === 'none') return t;
+  if(els.snapMode.value === 'velocity') return snapTimeToVelocityChange(t);
+  return snapTimeToNearestSample(t);
+}
+
+function sortSegments(){ state.labels.sort((a,b)=>a.start-b.start || a.end-b.end); }
+function getPreviousSegment(){ if(!state.labels.length) return null; sortSegments(); return state.labels[state.labels.length-1]; }
+function getSegmentAtTime(t){ for(let i=state.labels.length-1;i>=0;i--){ const s=state.labels[i]; if(t>=s.start && t<=s.end) return i; } return -1; }
+function getActiveSegment(){ return state.activeSegmentIdx == null ? null : state.labels[state.activeSegmentIdx] || null; }
+function selectSegmentForEditing(idx){ if(idx == null || !state.labels[idx]) return; state.activeSegmentIdx = idx; state.selection = [state.labels[idx].start, state.labels[idx].end]; }
+function startSelectionAtPreviousEnd(){
+  const prev = getPreviousSegment(); if(!prev) return;
+  clearActiveEditing();
+  const dt = getTypicalDt(), start = snapBoundaryTime(prev.end), end = Math.min(start + dt*5, state.visibleRange ? state.visibleRange[1] : start + dt*5);
+  state.selection = [start,end]; refreshAll();
+}
+
+function findFirstUndefinedSampleInRange(a, b){
+  for(const d of state.data){
+    if(d.time < a || d.time > b) continue;
+    if(getSegmentAtTime(d.time) < 0) return d.time;
+  }
+  return null;
+}
+function findLastUndefinedSampleInRange(a, b){
+  for(let i = state.data.length - 1; i >= 0; i--){
+    const d = state.data[i];
+    if(d.time < a || d.time > b) continue;
+    if(getSegmentAtTime(d.time) < 0) return d.time;
+  }
+  return null;
+}
+function trimSelectionToUndefined(a, b){
+  const start = findFirstUndefinedSampleInRange(a, b);
+  const end = findLastUndefinedSampleInRange(a, b);
+  if(start == null || end == null || end < start) return null;
+  return [start, end];
+}
+
+function getNeighborBounds(idx){
+  sortSegments();
+  const prev = idx > 0 ? state.labels[idx - 1] : null;
+  const next = idx < state.labels.length - 1 ? state.labels[idx + 1] : null;
+  return {prev, next};
+}
+
+function firstSampleAfter(time){
+  const dt = getTypicalDt();
+  for(const d of state.data){
+    if(d.time > time) return d.time;
+  }
+  return time + dt;
+}
+
+function lastSampleBefore(time){
+  const dt = getTypicalDt();
+  for(let i = state.data.length - 1; i >= 0; i--){
+    if(state.data[i].time < time) return state.data[i].time;
+  }
+  return time - dt;
+}
+
+function constrainSegmentNoOverlap(seg, idx){
+  if(!seg || !state.data.length) return;
+  const dt = Math.max(getTypicalDt()/2, 1e-9);
+  const minT = state.data[0].time;
+  const maxT = state.data[state.data.length - 1].time;
+  const {prev, next} = getNeighborBounds(idx);
+
+  seg.start = Math.max(minT, seg.start);
+  seg.end = Math.min(maxT, seg.end);
+
+  if(prev){
+    const minStart = firstSampleAfter(prev.end);
+    seg.start = Math.max(seg.start, minStart);
+  }
+  if(next){
+    const maxEnd = lastSampleBefore(next.start);
+    seg.end = Math.min(seg.end, maxEnd);
+  }
+
+  if(seg.end <= seg.start){
+    if(prev && !next){
+      seg.start = firstSampleAfter(prev.end);
+      seg.end = Math.min(maxT, seg.start + dt);
+    } else if(next && !prev){
+      seg.end = lastSampleBefore(next.start);
+      seg.start = Math.max(minT, seg.end - dt);
+    } else if(prev && next){
+      const s = firstSampleAfter(prev.end);
+      const e = lastSampleBefore(next.start);
+      seg.start = s;
+      seg.end = Math.max(s + dt, e);
+    } else {
+      seg.end = Math.min(maxT, seg.start + dt);
+    }
+  }
+}
+
+function latestLabelForTime(t){ for(let i=state.labels.length-1;i>=0;i--){ const s=state.labels[i]; if(t>=s.start && t<=s.end) return s.label; } return ''; }
+
+function applyLabel(label){
+  if(!state.selection) return;
+  const [a,b] = state.selection;
+  if(state.activeSegmentIdx != null && state.labels[state.activeSegmentIdx]){
+    if(label === ''){
+      state.labels.splice(state.activeSegmentIdx, 1);
+      clearActiveEditing();
+      state.selection = null;
+    } else {
+      const seg = state.labels[state.activeSegmentIdx];
+      seg.start = a;
+      seg.end = b;
+      seg.label = label;
+      sortSegments();
+      state.activeSegmentIdx = state.labels.indexOf(seg);
+      constrainSegmentNoOverlap(seg, state.activeSegmentIdx);
+      state.selection = [seg.start, seg.end];
+    }
+    refreshAll();
+    return;
+  }
+  if(label === ''){
+    state.labels = state.labels.filter(s => s.end <= a || s.start >= b);
+    state.selection = null;
+  } else {
+    let newRange = [a, b];
+    const trimmed = trimSelectionToUndefined(a, b);
+    if(trimmed) newRange = trimmed;
+    else { refreshAll(); return; }
+
+    const proposed = {start:newRange[0], end:newRange[1], label};
+    state.labels.push(proposed);
+    sortSegments();
+    const idx = state.labels.indexOf(proposed);
+    constrainSegmentNoOverlap(state.labels[idx], idx);
+
+    if(els.chainSegments.checked){
+      const dt = getTypicalDt();
+      const nextStart = snapBoundaryTime(state.labels[idx].end);
+      const nextEnd = Math.min(nextStart + dt*5, state.visibleRange ? state.visibleRange[1] : nextStart + dt*5);
+      state.selection = [nextStart, nextEnd];
+      clearActiveEditing();
+    } else {
+      state.selection = [state.labels[idx].start, state.labels[idx].end];
+    }
+  }
+  refreshAll();
+}
+
+function nudgeSegmentBoundary(idx, boundary, direction){
+  const seg = state.labels[idx]; if(!seg) return;
+  const dt = getTypicalDt(), step = dt*direction;
+  if(boundary === 'start') seg.start = Math.min(seg.end - dt/2, seg.start + step);
+  else seg.end = Math.max(seg.start + dt/2, seg.end + step);
+  seg.start = snapBoundaryTime(seg.start);
+  seg.end = snapBoundaryTime(seg.end);
+  constrainSegmentNoOverlap(seg, idx);
+  sortSegments();
+  state.activeSegmentIdx = state.labels.indexOf(seg);
+  state.selection=[seg.start, seg.end];
+  refreshAll();
+}
+function nudgeActiveSegment(boundary, direction){ if(state.activeSegmentIdx != null) nudgeSegmentBoundary(state.activeSegmentIdx, boundary, direction); }
+function moveActiveSegment(direction){
+  const seg = getActiveSegment(); if(!seg) return;
+  const dt = getTypicalDt()*direction, dur = seg.end - seg.start;
+  let start = snapBoundaryTime(seg.start + dt), end = start + dur, minT=state.data[0].time, maxT=state.data[state.data.length-1].time;
+  if(start < minT){ start=minT; end=start+dur; }
+  if(end > maxT){ end=maxT; start=end-dur; }
+  seg.start=start; seg.end=end;
+  constrainSegmentNoOverlap(seg, state.activeSegmentIdx);
+  sortSegments();
+  state.activeSegmentIdx=state.labels.indexOf(seg);
+  state.selection=[seg.start,seg.end];
+  refreshAll();
+}
+
+function updateSelectionStatus(){
+  if(!state.selection){ setStatus(els.selectionStatus, 'No active selection.'); return; }
+  const [a,b]=state.selection;
+  if(getActiveSegment()) setStatus(els.selectionStatus, `Editing ${getActiveSegment().label}: ${nice(a)} to ${nice(b)} (duration ${nice(b-a)})`);
+  else setStatus(els.selectionStatus, `Selected: ${nice(a)} to ${nice(b)} (duration ${nice(b-a)})`);
+}
+function updateTrialInfo(){
+  if(!state.currentTrial){ els.trialInfo.value = 'No trial selected'; return; }
+  els.trialInfo.value = `${state.currentTrial} | ${state.data.length} samples | ${state.labels.length} segments`;
+}
+
+function drawOverviewCanvas(){
+  octx.clearRect(0,0,overviewCanvas.width,overviewCanvas.height);
+  if(!state.data.length){ octx.fillStyle='#6b7280'; octx.fillText('Overview navigator will appear here.',20,30); return; }
+  const plot={left:50, top:12, width:overviewCanvas.width-70, height:overviewCanvas.height-24};
+  const minX=Math.min(...state.data.map(d=>d.x)), maxX=Math.max(...state.data.map(d=>d.x));
+  octx.strokeStyle='#d1d5db'; octx.strokeRect(plot.left, plot.top, plot.width, plot.height);
+  octx.beginPath();
+  state.data.forEach((d,i)=>{ const x=plot.left+(d.time-state.data[0].time)/((state.data[state.data.length-1].time-state.data[0].time)||1)*plot.width; const y=scale(d.x,minX,maxX,plot.top,plot.top+plot.height); if(i===0)octx.moveTo(x,y); else octx.lineTo(x,y); });
+  octx.strokeStyle='rgba(29,78,216,0.65)'; octx.stroke();
+  for(const seg of state.labels){
+    const ta=state.data[0].time, tb=state.data[state.data.length-1].time;
+    const x1=plot.left + (seg.start-ta)/((tb-ta)||1)*plot.width, x2=plot.left + (seg.end-ta)/((tb-ta)||1)*plot.width;
+    octx.fillStyle=hexToRgba(labelColor(seg.label),0.18); octx.fillRect(x1,plot.top,x2-x1,plot.height);
+  }
+  if(state.visibleRange){
+    const ta=state.data[0].time, tb=state.data[state.data.length-1].time;
+    const x1=plot.left + (state.visibleRange[0]-ta)/((tb-ta)||1)*plot.width, x2=plot.left + (state.visibleRange[1]-ta)/((tb-ta)||1)*plot.width;
+    octx.fillStyle='rgba(37,99,235,.15)'; octx.fillRect(x1,plot.top,x2-x1,plot.height); octx.strokeStyle='rgba(37,99,235,.95)'; octx.lineWidth=2; octx.strokeRect(x1,plot.top,x2-x1,plot.height);
+  }
+}
+
+function getSegmentRectsForPlot(plot){
+  const rects=[]; if(!state.visibleRange) return rects;
+  state.labels.forEach((seg, idx)=>{ const a=Math.max(seg.start,state.visibleRange[0]), b=Math.min(seg.end,state.visibleRange[1]); if(b<=a) return; rects.push({idx, x1:timeToPx(a,plot), x2:timeToPx(b,plot), label:seg.label}); });
+  return rects;
+}
+function getHandleHit(x,y){
+  for(const h of state.handleRects){ if(x>=h.x1&&x<=h.x2&&y>=h.y1&&y<=h.y2) return h; }
+  return null;
+}
+
+function drawTimeCanvas(){
+  tctx.clearRect(0,0,timeCanvas.width,timeCanvas.height);
+  state.handleRects = [];
+  const data=getVisibleData(); if(!data.length){ tctx.fillStyle='#6b7280'; tctx.fillText('Load data to begin.',20,30); return; }
+  const ranges=getRanges();
+  const pad={left:70,right:20,top:20,bottom:40}, gap=20, fullH=timeCanvas.height-pad.top-pad.bottom, halfH=(fullH-gap)/2;
+  const plotX={left:pad.left, top:pad.top, width:timeCanvas.width-pad.left-pad.right, height:halfH};
+  const plotY={left:pad.left, top:pad.top+halfH+gap, width:timeCanvas.width-pad.left-pad.right, height:halfH};
+
+  for(const seg of state.labels){
+    const a=Math.max(seg.start,state.visibleRange[0]), b=Math.min(seg.end,state.visibleRange[1]); if(b<=a) continue;
+    const x1=timeToPx(a,plotX), x2=timeToPx(b,plotX), active=seg===getActiveSegment();
+    tctx.fillStyle=hexToRgba(labelColor(seg.label), active ? 0.28 : 0.16);
+    tctx.fillRect(x1,plotX.top,x2-x1,plotX.height); tctx.fillRect(x1,plotY.top,x2-x1,plotY.height);
+  }
+  if(state.selection){
+    const x1=timeToPx(state.selection[0],plotX), x2=timeToPx(state.selection[1],plotX), left=Math.min(x1,x2), w=Math.abs(x2-x1);
+    tctx.fillStyle='rgba(37,99,235,.12)'; tctx.fillRect(left,plotX.top,w,plotX.height); tctx.fillRect(left,plotY.top,w,plotY.height);
+    tctx.strokeStyle='rgba(37,99,235,.85)'; tctx.setLineDash([5,4]); tctx.strokeRect(left,plotX.top,w,plotX.height); tctx.strokeRect(left,plotY.top,w,plotY.height); tctx.setLineDash([]);
+  }
+
+  tctx.beginPath(); data.forEach((d,i)=>{ const x=timeToPx(d.time,plotX), y=scale(d.x,ranges.minX,ranges.maxX,plotX.top,plotX.top+plotX.height); if(i===0)tctx.moveTo(x,y); else tctx.lineTo(x,y); }); tctx.strokeStyle='#1d4ed8'; tctx.lineWidth=1.5; tctx.stroke();
+  tctx.beginPath(); data.forEach((d,i)=>{ const x=timeToPx(d.time,plotY), y=scale(d.y,ranges.minY,ranges.maxY,plotY.top,plotY.top+plotY.height); if(i===0)tctx.moveTo(x,y); else tctx.lineTo(x,y); }); tctx.strokeStyle='#9333ea'; tctx.lineWidth=1.5; tctx.stroke();
+
+  const maxV = Math.max(ranges.maxV, Number(els.velocityThreshold.value)||1);
+  [plotX,plotY].forEach(plot => {
+    tctx.beginPath(); data.forEach((d,i)=>{ const x=timeToPx(d.time,plot), y=scale(d.velocity||0,0,maxV,plot.top,plot.top+plot.height); if(i===0)tctx.moveTo(x,y); else tctx.lineTo(x,y); }); tctx.strokeStyle='rgba(0,0,0,.35)'; tctx.setLineDash([4,4]); tctx.lineWidth=1; tctx.stroke(); tctx.setLineDash([]);
+    const ty=scale(Number(els.velocityThreshold.value)||0,0,maxV,plot.top,plot.top+plot.height); tctx.strokeStyle='rgba(0,0,0,.25)'; tctx.setLineDash([2,3]); tctx.beginPath(); tctx.moveTo(plot.left,ty); tctx.lineTo(plot.left+plot.width,ty); tctx.stroke(); tctx.setLineDash([]);
+  });
+
+  [plotX,plotY].forEach(plot => {
+    getSegmentRectsForPlot(plot).forEach(r => {
+      const active = state.activeSegmentIdx === r.idx;
+      tctx.strokeStyle = active ? 'rgba(17,24,39,.95)' : hexToRgba(labelColor(r.label), .9);
+      tctx.lineWidth = active ? 2.5 : 1.5;
+      tctx.beginPath(); tctx.moveTo(r.x1,plot.top); tctx.lineTo(r.x1,plot.top+plot.height); tctx.moveTo(r.x2,plot.top); tctx.lineTo(r.x2,plot.top+plot.height); tctx.stroke();
+    });
+  });
+
+  const active = getActiveSegment();
+  if(active){
+    const x1=timeToPx(active.start,plotY), x2=timeToPx(active.end,plotY), y=plotY.top+plotY.height-2, w=18, h=18;
+    tctx.fillStyle='rgba(17,24,39,.95)';
+    tctx.fillRect(x1-w/2,y,w,h); tctx.fillRect(x2-w/2,y,w,h);
+    tctx.fillStyle='#fff'; tctx.font='12px Arial'; tctx.fillText('S',x1-4,y+13); tctx.fillText('E',x2-4,y+13);
+    state.handleRects = [
+      {type:'start', x1:x1-w/2, x2:x1+w/2, y1:y, y2:y+h},
+      {type:'end', x1:x2-w/2, x2:x2+w/2, y1:y, y2:y+h},
+      {type:'segment', x1:Math.min(x1,x2), x2:Math.max(x1,x2), y1:plotY.top, y2:plotY.top+plotY.height}
+    ];
+    tctx.fillStyle='rgba(17,24,39,.8)'; tctx.fillText('Drag S/E handles or drag inside the segment', Math.min(x1,x2)+8, plotY.top+16);
+  }
+
+  const [a,b]=state.visibleRange; tctx.fillStyle='#6b7280'; tctx.font='12px Arial';
+  for(let i=0;i<=6;i++){ const f=i/6, t=a+f*(b-a), x=plotY.left+f*plotY.width; tctx.strokeStyle='#e5e7eb'; tctx.beginPath(); tctx.moveTo(x,plotX.top); tctx.lineTo(x,plotY.top+plotY.height); tctx.stroke(); tctx.fillText(nice(t),x-10,timeCanvas.height-10); }
+  if(state.hover){ const x=timeToPx(state.hover.time,plotX); tctx.strokeStyle='rgba(17,24,39,.45)'; tctx.beginPath(); tctx.moveTo(x,plotX.top); tctx.lineTo(x,plotY.top+plotY.height); tctx.stroke(); }
+}
+
+function drawSpaceCanvas(){
+  sctx.clearRect(0,0,spaceCanvas.width,spaceCanvas.height);
+  const data=getVisibleData(); if(!data.length){ sctx.fillStyle='#6b7280'; sctx.fillText('Spatial plot will appear here.',20,30); return; }
+  const stride=Math.max(1, parseInt(els.pointStride.value||'1',10)), xs=data.map(d=>d.x), ys=data.map(d=>d.y);
+  const minX=Math.min(...xs), maxX=Math.max(...xs), minY=Math.min(...ys), maxY=Math.max(...ys), plot={left:60, top:20, width:spaceCanvas.width-90, height:spaceCanvas.height-50};
+  sctx.strokeStyle='#d1d5db'; sctx.strokeRect(plot.left,plot.top,plot.width,plot.height);
+  sctx.beginPath(); let started=false;
+  for(let i=0;i<data.length;i+=stride){ const d=data[i], x=plot.left+(d.x-minX)/((maxX-minX)||1)*plot.width, y=plot.top+plot.height-(d.y-minY)/((maxY-minY)||1)*plot.height; if(!started){ sctx.moveTo(x,y); started=true; } else sctx.lineTo(x,y); }
+  sctx.strokeStyle='rgba(31,41,55,.35)'; sctx.stroke();
+  for(let i=0;i<data.length;i+=stride){ const d=data[i], x=plot.left+(d.x-minX)/((maxX-minX)||1)*plot.width, y=plot.top+plot.height-(d.y-minY)/((maxY-minY)||1)*plot.height; sctx.fillStyle=labelColor(latestLabelForTime(d.time) || ''); sctx.beginPath(); sctx.arc(x,y,2.5,0,Math.PI*2); sctx.fill(); }
+}
+
+function refreshSegmentsTable(){
+  els.segmentsTable.innerHTML=''; sortSegments();
+  state.labels.forEach((seg, idx) => {
+    const tr=document.createElement('tr'); if(idx===state.activeSegmentIdx) tr.className='active-row';
+    tr.innerHTML=`<td>${idx+1}</td><td><span class="badge ${seg.label==='fixation'?'fix':seg.label==='saccade'?'sac':seg.label==='unclear'?'unc':'unl'}">${seg.label}</span></td><td>${nice(seg.start)}</td><td>${nice(seg.end)}</td><td>${nice(seg.end-seg.start)}</td><td><button data-a="${idx}:start:-1">←S</button> <button data-a="${idx}:start:1">S→</button> <button data-a="${idx}:end:-1">←E</button> <button data-a="${idx}:end:1">E→</button></td><td><button data-del="${idx}">Delete</button></td>`;
+    tr.addEventListener('click', e => { if(e.target.closest('button')) return; selectSegmentForEditing(idx); refreshAll(); });
+    els.segmentsTable.appendChild(tr);
+  });
+  els.segmentsTable.querySelectorAll('button[data-del]').forEach(btn => btn.addEventListener('click', e => { e.stopPropagation(); const i=Number(btn.dataset.del); state.labels.splice(i,1); if(state.activeSegmentIdx===i) clearActiveEditing(); refreshAll(); }));
+  els.segmentsTable.querySelectorAll('button[data-a]').forEach(btn => btn.addEventListener('click', e => { e.stopPropagation(); const [i,b,d]=btn.dataset.a.split(':'); selectSegmentForEditing(Number(i)); nudgeSegmentBoundary(Number(i), b, Number(d)); }));
+}
+function refreshAll(){ updateSelectionStatus(); updateTrialInfo(); drawOverviewCanvas(); drawTimeCanvas(); drawSpaceCanvas(); refreshSegmentsTable(); }
+
+function exportCsv(name, rows){
+  const csv=rows.map(r=>r.map(v=>{const s=String(v??''); return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;}).join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}), url=URL.createObjectURL(blob), a=document.createElement('a');
+  a.href=url; a.download=name; a.click(); URL.revokeObjectURL(url);
+}
+function exportSegments(){
+  saveCurrentTrialLabels();
+  const rows=[['trial','start_time','end_time','label','duration']];
+  state.trialValues.forEach(trial => (state.labelsByTrial[trial]||[]).forEach(s => rows.push([trial,s.start,s.end,s.label,s.end-s.start])));
+  exportCsv('eye_tracking_manual_segments.csv', rows);
+}
+function exportSamples(){
+  saveCurrentTrialLabels();
+  const rows=[['trial','time','x','y','velocity','manual_label']];
+  state.trialValues.forEach(trial => {
+    const segs=state.labelsByTrial[trial]||[], data=state.allData.filter(d=>d.trial===trial);
+    data.forEach(d => { let label=''; for(let i=segs.length-1;i>=0;i--){ if(d.time>=segs[i].start && d.time<=segs[i].end){ label=segs[i].label; break; } } rows.push([trial,d.time,d.x,d.y,d.velocity||0,label]); });
+  });
+  exportCsv('eye_tracking_manual_labels_per_sample.csv', rows);
+}
+function loadLabelsText(text){
+  const rows=parseDelimited(text, guessDelimiter(text)).filter(r=>r.length); if(rows.length<2) return;
+  const header=rows[0].map(v=>String(v).trim().toLowerCase()), ti=header.indexOf('trial'), si=header.indexOf('start_time'), ei=header.indexOf('end_time'), li=header.indexOf('label');
+  if(si<0||ei<0||li<0) return;
+  rows.slice(1).forEach(r => {
+    const trial = ti>=0 ? String(r[ti]).trim() : (state.currentTrial || '__all_trials__');
+    if(!state.labelsByTrial[trial]) state.labelsByTrial[trial]=[];
+    const start=Number(r[si]), end=Number(r[ei]), label=String(r[li]).trim().toLowerCase();
+    if(Number.isFinite(start)&&Number.isFinite(end)&&label) state.labelsByTrial[trial].push({start,end,label});
+  });
+  state.labels = JSON.parse(JSON.stringify(state.labelsByTrial[state.currentTrial] || [])); refreshAll();
+}
+function nearestVisibleSampleFromPx(px, plot){
+  const t=pxToTime(px,plot); let best=null, dist=Infinity; for(const d of getVisibleData()){ const dd=Math.abs(d.time-t); if(dd<dist){dist=dd;best=d;} } return best;
+}
+
+// Events
+els.csvFile.addEventListener('change', e => { const f=e.target.files?.[0]; if(f) f.text().then(loadRawText); });
+els.labelsFile.addEventListener('change', e => { const f=e.target.files?.[0]; if(f) f.text().then(loadLabelsText); });
+els.applyMapping.addEventListener('click', applyMapping);
+els.resetView.addEventListener('click', resetView);
+els.trialSelect.addEventListener('change', () => setCurrentTrial(els.trialSelect.value));
+els.prevTrial.addEventListener('click', ()=>moveTrial(-1));
+els.nextTrial.addEventListener('click', ()=>moveTrial(1));
+els.panLeft.addEventListener('click', ()=>panVisible(-1));
+els.panRight.addEventListener('click', ()=>panVisible(1));
+els.zoomIn.addEventListener('click', ()=>zoomVisible(Number(els.zoomFactor.value)||1.5));
+els.zoomOut.addEventListener('click', ()=>zoomVisible(1/(Number(els.zoomFactor.value)||1.5)));
+els.zoomFull.addEventListener('click', resetView);
+els.recompute.addEventListener('click', refreshAll);
+els.zoomSelection.addEventListener('click', zoomSelection);
+els.deleteLast.addEventListener('click', ()=>{ state.labels.pop(); clearActiveEditing(); refreshAll(); });
+els.selectFromPrevEnd.addEventListener('click', startSelectionAtPreviousEnd);
+els.editStartEarlier.addEventListener('click', ()=>nudgeActiveSegment('start', -1));
+els.editStartLater.addEventListener('click', ()=>nudgeActiveSegment('start', 1));
+els.editEndEarlier.addEventListener('click', ()=>nudgeActiveSegment('end', -1));
+els.editEndLater.addEventListener('click', ()=>nudgeActiveSegment('end', 1));
+els.moveSegLeft.addEventListener('click', ()=>moveActiveSegment(-1));
+els.moveSegRight.addEventListener('click', ()=>moveActiveSegment(1));
+els.labelFix.addEventListener('click', ()=>applyLabel('fixation'));
+els.labelSac.addEventListener('click', ()=>applyLabel('saccade'));
+els.labelUnclear.addEventListener('click', ()=>applyLabel('unclear'));
+els.labelUnl.addEventListener('click', ()=>applyLabel(''));
+els.exportSegments.addEventListener('click', exportSegments);
+els.exportSamples.addEventListener('click', exportSamples);
+
+timeCanvas.addEventListener('mousedown', ev => {
+  if(!state.visibleRange) return;
+  ev.preventDefault(); state.isPointerDownOnCanvas = true;
+  const rect=timeCanvas.getBoundingClientRect(), x=(ev.clientX-rect.left)*(timeCanvas.width/rect.width), y=(ev.clientY-rect.top)*(timeCanvas.height/timeCanvas.getBoundingClientRect().height);
+  const pad={left:70,right:20,top:20,bottom:40}, gap=20, fullH=timeCanvas.height-pad.top-pad.bottom, halfH=(fullH-gap)/2;
+  const plotX={left:pad.left, top:pad.top, width:timeCanvas.width-pad.left-pad.right, height:halfH};
+  const hit = getHandleHit(x,y);
+  if(hit){ state.dragMode = hit.type; return; }
+  const t = pxToTime(x, plotX), segIdx = getSegmentAtTime(t);
+  if(segIdx >= 0){ selectSegmentForEditing(segIdx); timeCanvas.style.cursor='pointer'; refreshAll(); return; }
+  clearActiveEditing(); state.dragMode='select'; state.dragStartPx=x; state.selection=[t,t]; refreshAll();
+});
+timeCanvas.addEventListener('mousemove', ev => {
+  if(!state.visibleRange) return;
+  const rect=timeCanvas.getBoundingClientRect(), x=(ev.clientX-rect.left)*(timeCanvas.width/rect.width), y=(ev.clientY-rect.top)*(timeCanvas.height/rect.height);
+  const pad={left:70,right:20,top:20,bottom:40}, gap=20, fullH=timeCanvas.height-pad.top-pad.bottom, halfH=(fullH-gap)/2;
+  const plotX={left:pad.left, top:pad.top, width:timeCanvas.width-pad.left-pad.right, height:halfH};
+  const sample=nearestVisibleSampleFromPx(x, plotX); state.hover=sample;
+  if(sample) els.hoverInfo.textContent=`time=${nice(sample.time)}   x=${nice(sample.x)}   y=${nice(sample.y)}   velocity=${nice(sample.velocity||0)}   current_label=${latestLabelForTime(sample.time)||'none'}   snap=${els.snapMode.value}`;
+
+  if(state.isPointerDownOnCanvas && state.dragMode === 'select'){
+    const a=Math.min(pxToTime(state.dragStartPx, plotX), pxToTime(x, plotX)), b=Math.max(pxToTime(state.dragStartPx, plotX), pxToTime(x, plotX));
+    const trimmed = trimSelectionToUndefined(a, b);
+    if(trimmed) state.selection = trimmed;
+    else state.selection = [a, b];
+    refreshAll(); return;
+  }
+
+  const seg = getActiveSegment();
+  if(state.isPointerDownOnCanvas && seg && ['start','end','segment'].includes(state.dragMode)){
+    if(state.dragMode === 'start') seg.start = Math.min(seg.end - getTypicalDt()/2, snapBoundaryTime(pxToTime(x, plotX)));
+    if(state.dragMode === 'end') seg.end = Math.max(seg.start + getTypicalDt()/2, snapBoundaryTime(pxToTime(x, plotX)));
+    if(state.dragMode === 'segment'){
+      const dur = seg.end - seg.start, center = pxToTime(x, plotX), offset = dur/2;
+      let start = snapBoundaryTime(center - offset), end = start + dur;
+      if(start < state.data[0].time){ start = state.data[0].time; end = start + dur; }
+      if(end > state.data[state.data.length-1].time){ end = state.data[state.data.length-1].time; start = end - dur; }
+      seg.start = start; seg.end = end;
+    }
+    constrainSegmentNoOverlap(seg, state.activeSegmentIdx);
+    sortSegments();
+    state.activeSegmentIdx = state.labels.indexOf(seg);
+    state.selection=[seg.start, seg.end];
+    refreshAll();
+    return;
+  }
+
+  const hit=getHandleHit(x,y);
+  if(hit) timeCanvas.style.cursor = hit.type === 'segment' ? 'grab' : 'ew-resize';
+  else timeCanvas.style.cursor = getSegmentAtTime(pxToTime(x, plotX)) >= 0 ? 'pointer' : 'default';
+});
+window.addEventListener('mouseup', () => { state.isPointerDownOnCanvas=false; state.dragMode=null; timeCanvas.style.cursor='default'; refreshAll(); });
+timeCanvas.addEventListener('mouseleave', ()=>{ state.hover=null; els.hoverInfo.textContent=''; if(!state.isPointerDownOnCanvas) timeCanvas.style.cursor='default'; refreshAll(); });
+
+timeCanvas.addEventListener('wheel', ev => {
+  if(!state.visibleRange) return;
+  ev.preventDefault();
+  const rect=timeCanvas.getBoundingClientRect(), x=(ev.clientX-rect.left)*(timeCanvas.width/rect.width);
+  const plot={left:70, top:20, width:timeCanvas.width-90, height:150}; zoomVisible(ev.deltaY < 0 ? 1.25 : 1/1.25, pxToTime(x, plot));
+},{passive:false});
+
+overviewCanvas.addEventListener('mousedown', ev => {
+  if(!state.data.length || !state.visibleRange) return;
+  const rect=overviewCanvas.getBoundingClientRect(), x=(ev.clientX-rect.left)*(overviewCanvas.width/rect.width);
+  const plot={left:50, top:12, width:overviewCanvas.width-70, height:overviewCanvas.height-24};
+  const ta=state.data[0].time, tb=state.data[state.data.length-1].time, vx1=plot.left+(state.visibleRange[0]-ta)/((tb-ta)||1)*plot.width, vx2=plot.left+(state.visibleRange[1]-ta)/((tb-ta)||1)*plot.width;
+  if(x >= vx1 && x <= vx2){ state.dragMode='overview-pan'; state.overviewDragOffset = x-vx1; return; }
+  const t = ta + ((x-plot.left)/plot.width)*(tb-ta), span = state.visibleRange[1]-state.visibleRange[0]; state.visibleRange = clampVisibleRange([t-span/2, t+span/2]); refreshAll();
+});
+overviewCanvas.addEventListener('mousemove', ev => {
+  if(state.dragMode !== 'overview-pan' || !state.data.length) return;
+  const rect=overviewCanvas.getBoundingClientRect(), x=(ev.clientX-rect.left)*(overviewCanvas.width/rect.width);
+  const plot={left:50, top:12, width:overviewCanvas.width-70, height:overviewCanvas.height-24};
+  const ta=state.data[0].time, tb=state.data[state.data.length-1].time, span = state.visibleRange[1]-state.visibleRange[0], leftPx = x - (state.overviewDragOffset || 0);
+  const start = ta + ((leftPx-plot.left)/plot.width)*(tb-ta); state.visibleRange = clampVisibleRange([start, start+span]); refreshAll();
+});
+
+window.addEventListener('keydown', ev => {
+  const tag=(document.activeElement?.tagName||'').toLowerCase(); if(['input','textarea','select'].includes(tag)) return;
+  const k=ev.key.toLowerCase();
+  if(k==='f') applyLabel('fixation');
+  if(k==='s') applyLabel('saccade');
+  if(k==='u') applyLabel('unclear');
+  if(k==='c') applyLabel('');
+  if(k==='r' || k==='1') resetView();
+  if(k==='z') zoomSelection();
+  if(k==='n'){ ev.preventDefault(); startSelectionAtPreviousEnd(); }
+  if(ev.key==='ArrowLeft'){ ev.preventDefault(); panVisible(-1, ev.shiftKey ? 2 : 1); }
+  if(ev.key==='ArrowRight'){ ev.preventDefault(); panVisible(1, ev.shiftKey ? 2 : 1); }
+  if(ev.key==='+' || ev.key==='='){ ev.preventDefault(); zoomVisible(Number(els.zoomFactor.value)||1.5); }
+  if(ev.key==='-'){ ev.preventDefault(); zoomVisible(1/(Number(els.zoomFactor.value)||1.5)); }
+  if(ev.key===','){ ev.preventDefault(); moveTrial(-1); }
+  if(ev.key==='.') { ev.preventDefault(); moveTrial(1); }
+  if(k==='a') { ev.preventDefault(); nudgeActiveSegment('start', -1); }
+  if(k==='d') { ev.preventDefault(); nudgeActiveSegment('start', 1); }
+  if(k==='j') { ev.preventDefault(); nudgeActiveSegment('end', -1); }
+  if(k==='l') { ev.preventDefault(); nudgeActiveSegment('end', 1); }
+  if(k==='m'){ ev.preventDefault(); const modes=['sample','velocity','none']; const i=modes.indexOf(els.snapMode.value); els.snapMode.value=modes[(i+1)%modes.length]; refreshAll(); }
+});
+
+refreshAll();
+</script>
+</body>
+</html>
