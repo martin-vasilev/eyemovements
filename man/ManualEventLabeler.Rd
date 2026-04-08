@@ -2,7 +2,7 @@
 % Please edit documentation in R/ManualEventLabeler.R
 \name{ManualEventLabeler}
 \alias{ManualEventLabeler}
-\title{Launch the eye-tracking manual labeler}
+\title{Launches a manual event labeler}
 \usage{
 ManualEventLabeler()
 }
@@ -10,5 +10,5 @@ ManualEventLabeler()
 Invisibly returns the path to the HTML app.
 }
 \description{
-Opens the browser-based manual labeler bundled with the package.
+Opens a browser-based manual labeler for saccadic events.
 }

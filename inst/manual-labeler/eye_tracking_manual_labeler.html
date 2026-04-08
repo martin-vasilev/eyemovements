@@ -7,7 +7,7 @@
 <style>
 :root{
   --bg:#f7f8fb; --panel:#fff; --border:#d8dde8; --text:#1f2937; --muted:#6b7280;
-  --accent:#2563eb; --fix:#16a34a; --sac:#dc2626; --unc:#d97706; --unl:#9ca3af;
+  --accent:#2563eb; --fix:#16a34a; --sac:#dc2626; --pso:#7c3aed; --unc:#d97706; --unl:#9ca3af;
 }
 *{box-sizing:border-box}
 body{margin:0;font-family:Arial,Helvetica,sans-serif;color:var(--text);background:var(--bg)}
@@ -28,13 +28,14 @@ button:hover{background:#f3f4f6}
 button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
 button.fix{border-color:var(--fix);color:var(--fix);font-weight:700}
 button.sac{border-color:var(--sac);color:var(--sac);font-weight:700}
+button.pso{border-color:var(--pso);color:var(--pso);font-weight:700}
 button.unc{border-color:var(--unc);color:var(--unc);font-weight:700}
 button.unl{border-color:var(--unl);color:#4b5563;font-weight:700}
 .small{font-size:12px;color:var(--muted)}
 .status{font-size:13px;color:var(--muted);min-height:18px}
 canvas{width:100%;display:block;background:#fff;border:1px solid var(--border);border-radius:8px;user-select:none;-webkit-user-select:none}
 #overviewCanvas{height:90px;margin-bottom:10px}
-#timeCanvas{height:390px}
+#timeCanvas{height:500px}
 #spaceCanvas{height:260px}
 .canvas-wrap{display:grid;grid-template-rows:auto auto 1fr;gap:12px}
 .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
@@ -44,7 +45,7 @@ table{width:100%;border-collapse:collapse;font-size:12px}
 th,td{border-bottom:1px solid #e5e7eb;padding:6px 4px;text-align:left;vertical-align:top}
 th{color:var(--muted);font-weight:600;position:sticky;top:0;background:#fff}
 .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}
-.badge.fix{background:#dcfce7;color:#166534}.badge.sac{background:#fee2e2;color:#991b1b}.badge.unc{background:#ffedd5;color:#9a3412}.badge.unl{background:#f3f4f6;color:#4b5563}
+.badge.fix{background:#dcfce7;color:#166534}.badge.sac{background:#fee2e2;color:#991b1b}.badge.pso{background:#ede9fe;color:#5b21b6}.badge.unc{background:#ffedd5;color:#9a3412}.badge.unl{background:#f3f4f6;color:#4b5563}
 .help kbd{background:#111827;color:#fff;border-radius:4px;padding:2px 5px;font-size:11px}
 .mono{font-family:Consolas,Monaco,monospace}
 .active-row{background:rgba(37,99,235,.08)}
@@ -54,7 +55,7 @@ th{color:var(--muted);font-weight:600;position:sticky;top:0;background:#fff}
 <body>
 <header>
   <h1>Eye-Tracking Manual Labeler</h1>
-  <p>Load CSV gaze samples, navigate long trials, label fixation/saccade/unclear segments, and edit existing segments directly.</p>
+  <p>Load CSV gaze samples, navigate long trials, label fixation/saccade/post-saccadic oscillation/unclear segments, and edit existing segments directly.</p>
 </header>
 
 <div class="container">
@@ -115,6 +116,7 @@ th{color:var(--muted);font-weight:600;position:sticky;top:0;background:#fff}
       <div class="row" style="margin-top:10px;">
         <button id="labelFix" class="fix">Fixation (F)</button>
         <button id="labelSac" class="sac">Saccade (S)</button>
+        <button id="labelPSO" class="pso">PSO (P)</button>
         <button id="labelUnclear" class="unc">Unclear (U)</button>
         <button id="labelUnl" class="unl">Clear label (C)</button>
       </div>
@@ -149,9 +151,10 @@ th{color:var(--muted);font-weight:600;position:sticky;top:0;background:#fff}
           </select>
         </div>
         <div><label for="snapWindow">Snap window</label><input id="snapWindow" type="number" value="25" min="0" step="0.1" /></div>
+        <div><label for="psoScale">PSO view scale</label><input id="psoScale" type="number" value="1.0" min="0.2" step="0.1" /></div>
       </div>
       <div class="row" style="margin-top:10px;"><button id="recompute">Recompute preview</button></div>
-      <div class="small">Dragged boundaries can snap to the nearest sample or local velocity change.</div>
+      <div class="small">Dragged boundaries can snap to the nearest sample or local velocity change. The main time-series panel now includes a PSO diagnostic band with signed x/y velocity and speed to make ringing easier to spot.</div>
     </div>
 
     <div class="panel">
@@ -168,6 +171,7 @@ th{color:var(--muted);font-weight:600;position:sticky;top:0;background:#fff}
       <div class="small">
         <div><kbd>F</kbd> fixation</div>
         <div><kbd>S</kbd> saccade</div>
+        <div><kbd>P</kbd> PSO</div>
         <div><kbd>U</kbd> unclear</div>
         <div><kbd>C</kbd> clear label</div>
         <div><kbd>R</kbd> or <kbd>1</kbd> full trial</div>
@@ -188,6 +192,7 @@ th{color:var(--muted);font-weight:600;position:sticky;top:0;background:#fff}
       <div class="legend">
         <span><span class="sw" style="background:var(--fix)"></span>Fixation</span>
         <span><span class="sw" style="background:var(--sac)"></span>Saccade</span>
+        <span><span class="sw" style="background:var(--pso)"></span>PSO</span>
         <span><span class="sw" style="background:var(--unc)"></span>Unclear</span>
         <span><span class="sw" style="background:var(--unl)"></span>Unlabeled</span>
       </div>
@@ -257,6 +262,7 @@ const els = {
   hoverInfo: document.getElementById('hoverInfo'),
   velocityThreshold: document.getElementById('velocityThreshold'),
   pointStride: document.getElementById('pointStride'),
+  psoScale: document.getElementById('psoScale'),
   snapMode: document.getElementById('snapMode'),
   snapWindow: document.getElementById('snapWindow'),
   recompute: document.getElementById('recompute'),
@@ -274,6 +280,7 @@ const els = {
   moveSegRight: document.getElementById('moveSegRight'),
   labelFix: document.getElementById('labelFix'),
   labelSac: document.getElementById('labelSac'),
+  labelPSO: document.getElementById('labelPSO'),
   labelUnclear: document.getElementById('labelUnclear'),
   labelUnl: document.getElementById('labelUnl'),
   segmentsTable: document.querySelector('#segmentsTable tbody')
@@ -284,6 +291,7 @@ function nice(n){ return Number.isFinite(n) ? (Math.abs(n) >= 1000 ? n.toFixed(1
 function labelColor(label){
   return label === 'fixation' ? '#16a34a'
     : label === 'saccade' ? '#dc2626'
+    : label === 'pso' ? '#7c3aed'
     : label === 'unclear' ? '#d97706'
     : '#9ca3af';
 }
@@ -633,6 +641,26 @@ function updateTrialInfo(){
   els.trialInfo.value = `${state.currentTrial} | ${state.data.length} samples | ${state.labels.length} segments`;
 }
 
+function getVisibleDiagnostics(){
+  const data = getVisibleData();
+  if(!data.length) return [];
+  const out = [];
+  for(let i = 0; i < data.length; i++){
+    const d = data[i];
+    if(i === 0){
+      out.push({time:d.time, vx:0, vy:0, speed:0});
+    } else {
+      const prev = data[i-1];
+      const dt = d.time - prev.time;
+      const vx = dt > 0 ? (d.x - prev.x) / dt : 0;
+      const vy = dt > 0 ? (d.y - prev.y) / dt : 0;
+      const speed = Math.sqrt(vx*vx + vy*vy);
+      out.push({time:d.time, vx:vx, vy:vy, speed:speed});
+    }
+  }
+  return out;
+}
+
 function drawOverviewCanvas(){
   octx.clearRect(0,0,overviewCanvas.width,overviewCanvas.height);
   if(!state.data.length){ octx.fillStyle='#6b7280'; octx.fillText('Overview navigator will appear here.',20,30); return; }
@@ -667,33 +695,92 @@ function getHandleHit(x,y){
 function drawTimeCanvas(){
   tctx.clearRect(0,0,timeCanvas.width,timeCanvas.height);
   state.handleRects = [];
-  const data=getVisibleData(); if(!data.length){ tctx.fillStyle='#6b7280'; tctx.fillText('Load data to begin.',20,30); return; }
+  const data=getVisibleData();
+  if(!data.length){
+    tctx.fillStyle='#6b7280';
+    tctx.fillText('Load data to begin.',20,30);
+    return;
+  }
+  const diag = getVisibleDiagnostics();
   const ranges=getRanges();
-  const pad={left:70,right:20,top:20,bottom:40}, gap=20, fullH=timeCanvas.height-pad.top-pad.bottom, halfH=(fullH-gap)/2;
-  const plotX={left:pad.left, top:pad.top, width:timeCanvas.width-pad.left-pad.right, height:halfH};
-  const plotY={left:pad.left, top:pad.top+halfH+gap, width:timeCanvas.width-pad.left-pad.right, height:halfH};
+  const pad={left:70,right:20,top:20,bottom:40}, gap=16, fullH=timeCanvas.height-pad.top-pad.bottom;
+  const diagH = 120;
+  const mainH = (fullH - gap*2 - diagH) / 2;
+  const plotX={left:pad.left, top:pad.top, width:timeCanvas.width-pad.left-pad.right, height:mainH};
+  const plotY={left:pad.left, top:pad.top+mainH+gap, width:timeCanvas.width-pad.left-pad.right, height:mainH};
+  const plotD={left:pad.left, top:pad.top+mainH+gap+mainH+gap, width:timeCanvas.width-pad.left-pad.right, height:diagH};
 
   for(const seg of state.labels){
-    const a=Math.max(seg.start,state.visibleRange[0]), b=Math.min(seg.end,state.visibleRange[1]); if(b<=a) continue;
+    const a=Math.max(seg.start,state.visibleRange[0]), b=Math.min(seg.end,state.visibleRange[1]);
+    if(b<=a) continue;
     const x1=timeToPx(a,plotX), x2=timeToPx(b,plotX), active=seg===getActiveSegment();
     tctx.fillStyle=hexToRgba(labelColor(seg.label), active ? 0.28 : 0.16);
-    tctx.fillRect(x1,plotX.top,x2-x1,plotX.height); tctx.fillRect(x1,plotY.top,x2-x1,plotY.height);
+    tctx.fillRect(x1,plotX.top,x2-x1,plotX.height);
+    tctx.fillRect(x1,plotY.top,x2-x1,plotY.height);
+    tctx.fillRect(x1,plotD.top,x2-x1,plotD.height);
   }
   if(state.selection){
     const x1=timeToPx(state.selection[0],plotX), x2=timeToPx(state.selection[1],plotX), left=Math.min(x1,x2), w=Math.abs(x2-x1);
-    tctx.fillStyle='rgba(37,99,235,.12)'; tctx.fillRect(left,plotX.top,w,plotX.height); tctx.fillRect(left,plotY.top,w,plotY.height);
-    tctx.strokeStyle='rgba(37,99,235,.85)'; tctx.setLineDash([5,4]); tctx.strokeRect(left,plotX.top,w,plotX.height); tctx.strokeRect(left,plotY.top,w,plotY.height); tctx.setLineDash([]);
+    tctx.fillStyle='rgba(37,99,235,.12)';
+    tctx.fillRect(left,plotX.top,w,plotX.height);
+    tctx.fillRect(left,plotY.top,w,plotY.height);
+    tctx.fillRect(left,plotD.top,w,plotD.height);
+    tctx.strokeStyle='rgba(37,99,235,.85)';
+    tctx.setLineDash([5,4]);
+    tctx.strokeRect(left,plotX.top,w,plotX.height);
+    tctx.strokeRect(left,plotY.top,w,plotY.height);
+    tctx.strokeRect(left,plotD.top,w,plotD.height);
+    tctx.setLineDash([]);
   }
 
-  tctx.beginPath(); data.forEach((d,i)=>{ const x=timeToPx(d.time,plotX), y=scale(d.x,ranges.minX,ranges.maxX,plotX.top,plotX.top+plotX.height); if(i===0)tctx.moveTo(x,y); else tctx.lineTo(x,y); }); tctx.strokeStyle='#1d4ed8'; tctx.lineWidth=1.5; tctx.stroke();
-  tctx.beginPath(); data.forEach((d,i)=>{ const x=timeToPx(d.time,plotY), y=scale(d.y,ranges.minY,ranges.maxY,plotY.top,plotY.top+plotY.height); if(i===0)tctx.moveTo(x,y); else tctx.lineTo(x,y); }); tctx.strokeStyle='#9333ea'; tctx.lineWidth=1.5; tctx.stroke();
+  // X position
+  tctx.beginPath();
+  data.forEach((d,i)=>{ const x=timeToPx(d.time,plotX), y=scale(d.x,ranges.minX,ranges.maxX,plotX.top,plotX.top+plotX.height); if(i===0)tctx.moveTo(x,y); else tctx.lineTo(x,y); });
+  tctx.strokeStyle='#1d4ed8'; tctx.lineWidth=1.5; tctx.stroke();
 
+  // Y position
+  tctx.beginPath();
+  data.forEach((d,i)=>{ const x=timeToPx(d.time,plotY), y=scale(d.y,ranges.minY,ranges.maxY,plotY.top,plotY.top+plotY.height); if(i===0)tctx.moveTo(x,y); else tctx.lineTo(x,y); });
+  tctx.strokeStyle='#9333ea'; tctx.lineWidth=1.5; tctx.stroke();
+
+  // speed overlay on X/Y panels
   const maxV = Math.max(ranges.maxV, Number(els.velocityThreshold.value)||1);
   [plotX,plotY].forEach(plot => {
-    tctx.beginPath(); data.forEach((d,i)=>{ const x=timeToPx(d.time,plot), y=scale(d.velocity||0,0,maxV,plot.top,plot.top+plot.height); if(i===0)tctx.moveTo(x,y); else tctx.lineTo(x,y); }); tctx.strokeStyle='rgba(0,0,0,.35)'; tctx.setLineDash([4,4]); tctx.lineWidth=1; tctx.stroke(); tctx.setLineDash([]);
-    const ty=scale(Number(els.velocityThreshold.value)||0,0,maxV,plot.top,plot.top+plot.height); tctx.strokeStyle='rgba(0,0,0,.25)'; tctx.setLineDash([2,3]); tctx.beginPath(); tctx.moveTo(plot.left,ty); tctx.lineTo(plot.left+plot.width,ty); tctx.stroke(); tctx.setLineDash([]);
+    tctx.beginPath();
+    data.forEach((d,i)=>{ const x=timeToPx(d.time,plot), y=scale(d.velocity||0,0,maxV,plot.top,plot.top+plot.height); if(i===0)tctx.moveTo(x,y); else tctx.lineTo(x,y); });
+    tctx.strokeStyle='rgba(0,0,0,.35)'; tctx.setLineDash([4,4]); tctx.lineWidth=1; tctx.stroke(); tctx.setLineDash([]);
+    const ty=scale(Number(els.velocityThreshold.value)||0,0,maxV,plot.top,plot.top+plot.height);
+    tctx.strokeStyle='rgba(0,0,0,.25)'; tctx.setLineDash([2,3]); tctx.beginPath(); tctx.moveTo(plot.left,ty); tctx.lineTo(plot.left+plot.width,ty); tctx.stroke(); tctx.setLineDash([]);
   });
 
+  // Diagnostic PSO band
+  let maxAbs = 0, maxSpeed = 0;
+  diag.forEach(d => { maxAbs = Math.max(maxAbs, Math.abs(d.vx), Math.abs(d.vy)); maxSpeed = Math.max(maxSpeed, d.speed); });
+  const scaleMult = Math.max(0.2, Number(els.psoScale.value) || 1);
+  maxAbs = (maxAbs || 1) / scaleMult;
+  maxSpeed = (maxSpeed || 1) / scaleMult;
+  const zeroY = plotD.top + plotD.height * 0.52;
+  const ySigned = v => zeroY - (v / (maxAbs || 1)) * (plotD.height * 0.28);
+  const ySpeed = v => plotD.top + plotD.height - (v / (maxSpeed || 1)) * (plotD.height * 0.28) - 8;
+
+  tctx.strokeStyle = 'rgba(0,0,0,.22)';
+  tctx.setLineDash([4,4]);
+  tctx.beginPath(); tctx.moveTo(plotD.left, zeroY); tctx.lineTo(plotD.left+plotD.width, zeroY); tctx.stroke();
+  tctx.setLineDash([]);
+
+  tctx.beginPath();
+  diag.forEach((d,i)=>{ const x=timeToPx(d.time,plotD), y=ySigned(d.vx); if(i===0)tctx.moveTo(x,y); else tctx.lineTo(x,y); });
+  tctx.strokeStyle='#1d4ed8'; tctx.lineWidth=1.2; tctx.stroke();
+
+  tctx.beginPath();
+  diag.forEach((d,i)=>{ const x=timeToPx(d.time,plotD), y=ySigned(d.vy); if(i===0)tctx.moveTo(x,y); else tctx.lineTo(x,y); });
+  tctx.strokeStyle='#9333ea'; tctx.lineWidth=1.2; tctx.stroke();
+
+  tctx.beginPath();
+  diag.forEach((d,i)=>{ const x=timeToPx(d.time,plotD), y=ySpeed(d.speed); if(i===0)tctx.moveTo(x,y); else tctx.lineTo(x,y); });
+  tctx.strokeStyle='#111827'; tctx.lineWidth=1.2; tctx.stroke();
+
+  // Segment boundaries
   [plotX,plotY].forEach(plot => {
     getSegmentRectsForPlot(plot).forEach(r => {
       const active = state.activeSegmentIdx === r.idx;
@@ -714,12 +801,32 @@ function drawTimeCanvas(){
       {type:'end', x1:x2-w/2, x2:x2+w/2, y1:y, y2:y+h},
       {type:'segment', x1:Math.min(x1,x2), x2:Math.max(x1,x2), y1:plotY.top, y2:plotY.top+plotY.height}
     ];
-    tctx.fillStyle='rgba(17,24,39,.8)'; tctx.fillText('Drag S/E handles or drag inside the segment', Math.min(x1,x2)+8, plotY.top+16);
+    tctx.fillStyle='rgba(17,24,39,.8)';
+    tctx.fillText('Drag S/E handles or drag inside the segment', Math.min(x1,x2)+8, plotY.top+16);
   }
 
-  const [a,b]=state.visibleRange; tctx.fillStyle='#6b7280'; tctx.font='12px Arial';
-  for(let i=0;i<=6;i++){ const f=i/6, t=a+f*(b-a), x=plotY.left+f*plotY.width; tctx.strokeStyle='#e5e7eb'; tctx.beginPath(); tctx.moveTo(x,plotX.top); tctx.lineTo(x,plotY.top+plotY.height); tctx.stroke(); tctx.fillText(nice(t),x-10,timeCanvas.height-10); }
-  if(state.hover){ const x=timeToPx(state.hover.time,plotX); tctx.strokeStyle='rgba(17,24,39,.45)'; tctx.beginPath(); tctx.moveTo(x,plotX.top); tctx.lineTo(x,plotY.top+plotY.height); tctx.stroke(); }
+  // labels
+  tctx.fillStyle='#6b7280'; tctx.font='12px Arial';
+  tctx.fillText('X position', 10, plotX.top + 14);
+  tctx.fillText('Y position', 10, plotY.top + 14);
+  tctx.fillText('PSO diagnostic', 10, plotD.top + 14);
+  tctx.fillText('vx', plotD.left + 10, plotD.top + 14);
+  tctx.fillText('vy', plotD.left + 35, plotD.top + 14);
+  tctx.fillText('speed', plotD.left + 60, plotD.top + 14);
+  tctx.fillText('0', plotD.left - 18, zeroY + 4);
+
+  const [a,b]=state.visibleRange;
+  for(let i=0;i<=6;i++){
+    const f=i/6, t=a+f*(b-a), x=plotD.left+f*plotD.width;
+    tctx.strokeStyle='#e5e7eb';
+    tctx.beginPath(); tctx.moveTo(x,plotX.top); tctx.lineTo(x,plotD.top+plotD.height); tctx.stroke();
+    tctx.fillStyle='#6b7280'; tctx.fillText(nice(t),x-10,timeCanvas.height-10);
+  }
+  if(state.hover){
+    const x=timeToPx(state.hover.time,plotX);
+    tctx.strokeStyle='rgba(17,24,39,.45)';
+    tctx.beginPath(); tctx.moveTo(x,plotX.top); tctx.lineTo(x,plotD.top+plotD.height); tctx.stroke();
+  }
 }
 
 function drawSpaceCanvas(){
@@ -734,11 +841,124 @@ function drawSpaceCanvas(){
   for(let i=0;i<data.length;i+=stride){ const d=data[i], x=plot.left+(d.x-minX)/((maxX-minX)||1)*plot.width, y=plot.top+plot.height-(d.y-minY)/((maxY-minY)||1)*plot.height; sctx.fillStyle=labelColor(latestLabelForTime(d.time) || ''); sctx.beginPath(); sctx.arc(x,y,2.5,0,Math.PI*2); sctx.fill(); }
 }
 
+
+function drawPSOCanvas(){
+  pctx.clearRect(0,0,psoCanvas.width,psoCanvas.height);
+  const diag = getVisibleDiagnostics();
+  if(!diag.length){
+    pctx.fillStyle = '#6b7280';
+    pctx.fillText('PSO diagnostic view will appear here.', 20, 30);
+    return;
+  }
+
+  const pad = {left:70, right:20, top:20, bottom:28};
+  const plot = {left:pad.left, top:pad.top, width:psoCanvas.width-pad.left-pad.right, height:psoCanvas.height-pad.top-pad.bottom};
+
+  const scaleMult = Math.max(0.2, Number(els.psoScale.value) || 1);
+  let maxAbs = 0;
+  let maxSpeed = 0;
+  diag.forEach(d => {
+    maxAbs = Math.max(maxAbs, Math.abs(d.vx), Math.abs(d.vy));
+    maxSpeed = Math.max(maxSpeed, d.speed);
+  });
+  maxAbs = (maxAbs || 1) / scaleMult;
+  maxSpeed = (maxSpeed || 1) / scaleMult;
+
+  // shade active segment
+  const active = getActiveSegment();
+  if(active && state.visibleRange){
+    const a = Math.max(active.start, state.visibleRange[0]);
+    const b = Math.min(active.end, state.visibleRange[1]);
+    if(b > a){
+      const x1 = timeToPx(a, plot);
+      const x2 = timeToPx(b, plot);
+      pctx.fillStyle = 'rgba(37,99,235,0.12)';
+      pctx.fillRect(x1, plot.top, x2-x1, plot.height);
+    }
+  }
+
+  // border
+  pctx.strokeStyle = '#d1d5db';
+  pctx.strokeRect(plot.left, plot.top, plot.width, plot.height);
+
+  // zero line for signed velocities
+  const zeroY = plot.top + plot.height * 0.5;
+  pctx.strokeStyle = 'rgba(0,0,0,0.25)';
+  pctx.setLineDash([4,4]);
+  pctx.beginPath();
+  pctx.moveTo(plot.left, zeroY);
+  pctx.lineTo(plot.left + plot.width, zeroY);
+  pctx.stroke();
+  pctx.setLineDash([]);
+
+  // helpers
+  const ySigned = v => plot.top + plot.height * 0.5 - (v / (maxAbs || 1)) * (plot.height * 0.35);
+  const ySpeed = v => plot.top + plot.height - (v / (maxSpeed || 1)) * (plot.height * 0.35) - 6;
+
+  // vx
+  pctx.beginPath();
+  diag.forEach((d,i) => {
+    const x = timeToPx(d.time, plot);
+    const y = ySigned(d.vx);
+    if(i === 0) pctx.moveTo(x,y); else pctx.lineTo(x,y);
+  });
+  pctx.strokeStyle = '#1d4ed8';
+  pctx.lineWidth = 1.3;
+  pctx.stroke();
+
+  // vy
+  pctx.beginPath();
+  diag.forEach((d,i) => {
+    const x = timeToPx(d.time, plot);
+    const y = ySigned(d.vy);
+    if(i === 0) pctx.moveTo(x,y); else pctx.lineTo(x,y);
+  });
+  pctx.strokeStyle = '#9333ea';
+  pctx.lineWidth = 1.3;
+  pctx.stroke();
+
+  // speed
+  pctx.beginPath();
+  diag.forEach((d,i) => {
+    const x = timeToPx(d.time, plot);
+    const y = ySpeed(d.speed);
+    if(i === 0) pctx.moveTo(x,y); else pctx.lineTo(x,y);
+  });
+  pctx.strokeStyle = '#111827';
+  pctx.lineWidth = 1.2;
+  pctx.stroke();
+
+  // labels
+  pctx.fillStyle = '#6b7280';
+  pctx.font = '12px Arial';
+  pctx.fillText('Signed velocity (x/y)', 10, plot.top + 14);
+  pctx.fillText('Speed', 10, plot.top + plot.height - 10);
+  pctx.fillText('0', plot.left - 18, zeroY + 4);
+  pctx.fillText('vx', plot.left + 10, plot.top + 14);
+  pctx.fillText('vy', plot.left + 35, plot.top + 14);
+  pctx.fillText('speed', plot.left + 60, plot.top + 14);
+
+  // x ticks
+  const [a,b] = state.visibleRange;
+  for(let i=0;i<=6;i++){
+    const frac = i/6;
+    const t = a + frac*(b-a);
+    const x = plot.left + frac*plot.width;
+    pctx.strokeStyle = '#f1f5f9';
+    pctx.beginPath();
+    pctx.moveTo(x, plot.top);
+    pctx.lineTo(x, plot.top + plot.height);
+    pctx.stroke();
+    pctx.fillStyle = '#6b7280';
+    pctx.fillText(nice(t), x-10, psoCanvas.height - 8);
+  }
+}
+
 function refreshSegmentsTable(){
   els.segmentsTable.innerHTML=''; sortSegments();
   state.labels.forEach((seg, idx) => {
     const tr=document.createElement('tr'); if(idx===state.activeSegmentIdx) tr.className='active-row';
-    tr.innerHTML=`<td>${idx+1}</td><td><span class="badge ${seg.label==='fixation'?'fix':seg.label==='saccade'?'sac':seg.label==='unclear'?'unc':'unl'}">${seg.label}</span></td><td>${nice(seg.start)}</td><td>${nice(seg.end)}</td><td>${nice(seg.end-seg.start)}</td><td><button data-a="${idx}:start:-1">←S</button> <button data-a="${idx}:start:1">S→</button> <button data-a="${idx}:end:-1">←E</button> <button data-a="${idx}:end:1">E→</button></td><td><button data-del="${idx}">Delete</button></td>`;
+    tr.innerHTML=`<td>${idx+1}</td><td><span class="badge ${seg.label==='fixation'?'fix':seg.label==='saccade'?'sac':seg.label==='pso'?'pso':seg.label==='unclear'?'unc':'unl'}">${seg.label}</span></td><td>${nice(seg.start)}</td><td>${nice(seg.end)}</td><td>${nice(seg.end-seg.start)}</td><td><button data-a="${idx}:start:-1">←S</button> <button data-a="${idx}:start:1">S→</button> <button data-a="${idx}:end:-1">←E</button> <button data-a="${idx}:end:1">E→</button></td><td><button data-del="${idx}">Delete</button></td>`;
     tr.addEventListener('click', e => { if(e.target.closest('button')) return; selectSegmentForEditing(idx); refreshAll(); });
     els.segmentsTable.appendChild(tr);
   });
@@ -808,6 +1028,7 @@ els.moveSegLeft.addEventListener('click', ()=>moveActiveSegment(-1));
 els.moveSegRight.addEventListener('click', ()=>moveActiveSegment(1));
 els.labelFix.addEventListener('click', ()=>applyLabel('fixation'));
 els.labelSac.addEventListener('click', ()=>applyLabel('saccade'));
+els.labelPSO.addEventListener('click', ()=>applyLabel('pso'));
 els.labelUnclear.addEventListener('click', ()=>applyLabel('unclear'));
 els.labelUnl.addEventListener('click', ()=>applyLabel(''));
 els.exportSegments.addEventListener('click', exportSegments);
@@ -895,6 +1116,7 @@ window.addEventListener('keydown', ev => {
   const k=ev.key.toLowerCase();
   if(k==='f') applyLabel('fixation');
   if(k==='s') applyLabel('saccade');
+  if(k==='p') applyLabel('pso');
   if(k==='u') applyLabel('unclear');
   if(k==='c') applyLabel('');
   if(k==='r' || k==='1') resetView();
