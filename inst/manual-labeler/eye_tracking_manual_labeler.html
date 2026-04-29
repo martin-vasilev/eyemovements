@@ -7,7 +7,7 @@
 <style>
 :root{
   --bg:#f7f8fb; --panel:#fff; --border:#d8dde8; --text:#1f2937; --muted:#6b7280;
-  --accent:#2563eb; --fix:#16a34a; --sac:#dc2626; --pso:#7c3aed; --unc:#d97706; --unl:#9ca3af;
+  --accent:#2563eb; --fix:#16a34a; --sac:#dc2626; --pso:#7c3aed; --blink:#0891b2; --unc:#d97706; --unl:#9ca3af;
 }
 *{box-sizing:border-box}
 body{margin:0;font-family:Arial,Helvetica,sans-serif;color:var(--text);background:var(--bg)}
@@ -29,6 +29,7 @@ button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
 button.fix{border-color:var(--fix);color:var(--fix);font-weight:700}
 button.sac{border-color:var(--sac);color:var(--sac);font-weight:700}
 button.pso{border-color:var(--pso);color:var(--pso);font-weight:700}
+button.blink{border-color:var(--blink);color:var(--blink);font-weight:700}
 button.unc{border-color:var(--unc);color:var(--unc);font-weight:700}
 button.unl{border-color:var(--unl);color:#4b5563;font-weight:700}
 .small{font-size:12px;color:var(--muted)}
@@ -45,7 +46,7 @@ table{width:100%;border-collapse:collapse;font-size:12px}
 th,td{border-bottom:1px solid #e5e7eb;padding:6px 4px;text-align:left;vertical-align:top}
 th{color:var(--muted);font-weight:600;position:sticky;top:0;background:#fff}
 .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700}
-.badge.fix{background:#dcfce7;color:#166534}.badge.sac{background:#fee2e2;color:#991b1b}.badge.pso{background:#ede9fe;color:#5b21b6}.badge.unc{background:#ffedd5;color:#9a3412}.badge.unl{background:#f3f4f6;color:#4b5563}
+.badge.fix{background:#dcfce7;color:#166534}.badge.sac{background:#fee2e2;color:#991b1b}.badge.pso{background:#ede9fe;color:#5b21b6}.badge.blink{background:#cffafe;color:#155e75}.badge.unc{background:#ffedd5;color:#9a3412}.badge.unl{background:#f3f4f6;color:#4b5563}
 .help kbd{background:#111827;color:#fff;border-radius:4px;padding:2px 5px;font-size:11px}
 .mono{font-family:Consolas,Monaco,monospace}
 .active-row{background:rgba(37,99,235,.08)}
@@ -55,7 +56,7 @@ th{color:var(--muted);font-weight:600;position:sticky;top:0;background:#fff}
 <body>
 <header>
   <h1>Eye-Tracking Manual Labeler</h1>
-  <p>Load CSV gaze samples, navigate long trials, label fixation/saccade/post-saccadic oscillation/unclear segments, and edit existing segments directly.</p>
+  <p>Load CSV gaze samples, navigate long trials, label fixation/saccade/post-saccadic oscillation/blink/unclear segments, and edit existing segments directly.</p>
 </header>
 
 <div class="container">
@@ -117,6 +118,7 @@ th{color:var(--muted);font-weight:600;position:sticky;top:0;background:#fff}
         <button id="labelFix" class="fix">Fixation (F)</button>
         <button id="labelSac" class="sac">Saccade (S)</button>
         <button id="labelPSO" class="pso">PSO (P)</button>
+        <button id="labelBlink" class="blink">Blink (B)</button>
         <button id="labelUnclear" class="unc">Unclear (U)</button>
         <button id="labelUnl" class="unl">Clear label (C)</button>
       </div>
@@ -172,6 +174,7 @@ th{color:var(--muted);font-weight:600;position:sticky;top:0;background:#fff}
         <div><kbd>F</kbd> fixation</div>
         <div><kbd>S</kbd> saccade</div>
         <div><kbd>P</kbd> PSO</div>
+        <div><kbd>B</kbd> blink</div>
         <div><kbd>U</kbd> unclear</div>
         <div><kbd>C</kbd> clear label</div>
         <div><kbd>R</kbd> or <kbd>1</kbd> full trial</div>
@@ -193,6 +196,7 @@ th{color:var(--muted);font-weight:600;position:sticky;top:0;background:#fff}
         <span><span class="sw" style="background:var(--fix)"></span>Fixation</span>
         <span><span class="sw" style="background:var(--sac)"></span>Saccade</span>
         <span><span class="sw" style="background:var(--pso)"></span>PSO</span>
+        <span><span class="sw" style="background:var(--blink)"></span>Blink</span>
         <span><span class="sw" style="background:var(--unc)"></span>Unclear</span>
         <span><span class="sw" style="background:var(--unl)"></span>Unlabeled</span>
       </div>
@@ -281,6 +285,7 @@ const els = {
   labelFix: document.getElementById('labelFix'),
   labelSac: document.getElementById('labelSac'),
   labelPSO: document.getElementById('labelPSO'),
+  labelBlink: document.getElementById('labelBlink'),
   labelUnclear: document.getElementById('labelUnclear'),
   labelUnl: document.getElementById('labelUnl'),
   segmentsTable: document.querySelector('#segmentsTable tbody')
@@ -292,6 +297,7 @@ function labelColor(label){
   return label === 'fixation' ? '#16a34a'
     : label === 'saccade' ? '#dc2626'
     : label === 'pso' ? '#7c3aed'
+    : label === 'blink' ? '#0891b2'
     : label === 'unclear' ? '#d97706'
     : '#9ca3af';
 }
@@ -958,7 +964,7 @@ function refreshSegmentsTable(){
   els.segmentsTable.innerHTML=''; sortSegments();
   state.labels.forEach((seg, idx) => {
     const tr=document.createElement('tr'); if(idx===state.activeSegmentIdx) tr.className='active-row';
-    tr.innerHTML=`<td>${idx+1}</td><td><span class="badge ${seg.label==='fixation'?'fix':seg.label==='saccade'?'sac':seg.label==='pso'?'pso':seg.label==='unclear'?'unc':'unl'}">${seg.label}</span></td><td>${nice(seg.start)}</td><td>${nice(seg.end)}</td><td>${nice(seg.end-seg.start)}</td><td><button data-a="${idx}:start:-1">←S</button> <button data-a="${idx}:start:1">S→</button> <button data-a="${idx}:end:-1">←E</button> <button data-a="${idx}:end:1">E→</button></td><td><button data-del="${idx}">Delete</button></td>`;
+    tr.innerHTML=`<td>${idx+1}</td><td><span class="badge ${seg.label==='fixation'?'fix':seg.label==='saccade'?'sac':seg.label==='pso'?'pso':seg.label==='blink'?'blink':seg.label==='unclear'?'unc':'unl'}">${seg.label}</span></td><td>${nice(seg.start)}</td><td>${nice(seg.end)}</td><td>${nice(seg.end-seg.start)}</td><td><button data-a="${idx}:start:-1">←S</button> <button data-a="${idx}:start:1">S→</button> <button data-a="${idx}:end:-1">←E</button> <button data-a="${idx}:end:1">E→</button></td><td><button data-del="${idx}">Delete</button></td>`;
     tr.addEventListener('click', e => { if(e.target.closest('button')) return; selectSegmentForEditing(idx); refreshAll(); });
     els.segmentsTable.appendChild(tr);
   });
@@ -1029,6 +1035,7 @@ els.moveSegRight.addEventListener('click', ()=>moveActiveSegment(1));
 els.labelFix.addEventListener('click', ()=>applyLabel('fixation'));
 els.labelSac.addEventListener('click', ()=>applyLabel('saccade'));
 els.labelPSO.addEventListener('click', ()=>applyLabel('pso'));
+els.labelBlink.addEventListener('click', ()=>applyLabel('blink'));
 els.labelUnclear.addEventListener('click', ()=>applyLabel('unclear'));
 els.labelUnl.addEventListener('click', ()=>applyLabel(''));
 els.exportSegments.addEventListener('click', exportSegments);
@@ -1117,6 +1124,7 @@ window.addEventListener('keydown', ev => {
   if(k==='f') applyLabel('fixation');
   if(k==='s') applyLabel('saccade');
   if(k==='p') applyLabel('pso');
+  if(k==='b') applyLabel('blink');
   if(k==='u') applyLabel('unclear');
   if(k==='c') applyLabel('');
   if(k==='r' || k==='1') resetView();

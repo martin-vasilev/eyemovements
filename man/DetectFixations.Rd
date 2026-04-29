@@ -2,10 +2,7 @@
 % Please edit documentation in R/DetectFixations.R
 \name{DetectFixations}
 \alias{DetectFixations}
-\title{Detect fixations from eye samples}
-\source{
-Salvucci, D. D., & Goldberg, J. H. (2000, November). Identifying fixations and saccades in eye-tracking protocols. In Proceedings of the 2000 symposium on Eye tracking research & applications (pp. 71-78).
-}
+\title{Detect fixations or saccades from eye samples}
 \usage{
 DetectFixations(
   data,
@@ -15,7 +12,10 @@ DetectFixations(
   window_threshold = 100,
   disp_threshold = 1,
   vel_threshold = 40,
-  min_fix_dur = 50
+  min_fix_dur = 50,
+  lambda = 6,
+  return_saccades = FALSE,
+  min_sac_samples = 2
 )
 }
 \arguments{
@@ -35,23 +35,17 @@ Must include at least the following columns: "time", "x", and "y".}
 \item{vel_threshold}{Velocity threshold in degrees/second (I-VT algorithm).}
 
 \item{min_fix_dur}{Minimum fixation duration (in ms) to extract}
+
+\item{return_saccades}{Logical. If \code{FALSE} (default), return fixations.
+If \code{TRUE}, return saccades instead.}
+
+\item{min_sac_samples}{Minimum number of samples required to classify a saccade (I-VT).
+Used to remove spurious 1-sample velocity spikes.}
 }
 \value{
-A data frame with one row per detected fixation and the following columns:
-\describe{
-\item{fix_id}{Sequential fixation identifier within the trial.}
-\item{fix_start}{Start time of the fixation (in milliseconds, eye-tracker internal clock).}
-\item{fix_end}{End time of the fixation (in milliseconds).}
-\item{x}{Mean horizontal gaze position of all samples in the fixation (in pixels).}
-\item{y}{Mean vertical gaze position of all samples in the fixation (in pixels).}
-\item{fix_dur}{Fixation duration in milliseconds, computed as
-\code{end_fix - start_fix}.}
-\item{dispersion_deg}{Total spatial dispersion of samples in the fixation,
-computed as the sum of horizontal and vertical dispersion in degrees of visual angle
-(I-DT algorithm).}
-\item{velocity}{ Average sample-to-sample velocity within the fixation in degrees per second (I-VT algorithm)
-\item{n_samples}{Number of raw eye-tracking samples contributing to the fixation.}
-}
+A data frame with one row per detected event.
+If \code{return_saccades = FALSE}, the output contains fixation-level data.
+If \code{return_saccades = TRUE}, the output contains saccade-level data.
 }
 \description{
 This function detects fixations from raw eye position samples
@@ -63,30 +57,8 @@ angle per pixel need to be provided for the x- and y-dimensions (
 The function currently supports the following detection methods:
 \itemize{
 \item Identification by Dispersion Threshold  (I-DT)
+\item Identification by Velocity Threshold (I-VT)
 }
-}
-\examples{
-data("data_Oz")
-
-# I-DT method:
-
-fixations <- DetectFixations(
-  data = data_Oz, method = "I-DT",
-  dva_x = 0.0187, dva_y = 0.0192,
-  window_threshold = 100, disp_threshold = 1
-)
-
-head(fixations)
-
-# I-VT method:
-
-fixations <- DetectFixations(
-  data = data_Oz, method = "I-VT",
-  dva_x = 0.0187, dva_y = 0.0192,
-  vel_threshold = 40, min_fix_dur = 50
-)
-
-head(fixations)
 }
 \author{
 Martin R. Vasilev, Yixin Ding
