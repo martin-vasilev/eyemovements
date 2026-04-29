@@ -1,0 +1,51 @@
+---
+output: github_document
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "man/figures/README-",
+  out.width = "100%"
+)
+```
+
+# eyemovements
+
+<!-- badges: start -->
+<!-- badges: end -->
+
+Tools for processing raw eye-tracking samples and detecting fixations and saccades.
+
+
+## Installation
+
+You can install the package from Github by running the following code:
+
+```{r installation,  eval=FALSE}
+# Check if "devtools" is installed:
+if('devtools' %in% rownames(installed.packages())==FALSE){
+    install.packages('devtools')
+    library(devtools)
+  }else{
+    library(devtools)
+  }
+devtools::install_github("martin-vasilev/eyemovements")
+
+```
+
+## Sample data:
+
+The package has some in-built datasets to use as an example:
+
+1. `"Oz" dataset`, containing the raw samples of a participant reading a page from the "Little Wizard Stories of Oz" (Slattery & Vasilev, 2019). Data was recorded with an Eyelink 1000+ at 1000 Hz (monocular, from the right eye):
+
+```{r example}
+library(eyemovements)
+dat= data_Oz
+str(dat)
+```
+
