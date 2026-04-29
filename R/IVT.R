@@ -4,15 +4,13 @@ NULL
 
 #' Detect fixations or saccades from eye samples using the Identification by Velocity Threshold  (I-VT) method
 #'
-#'This function detects fixations from raw eye position samples
-#'using a number of possible detection algorithms. Most algorithms
+#'This function detects fixations or saccades from raw eye position samples
+#'using the I-VT algortiythm. Most algorithms
 #'require calculations based on visual angle (see
 #' \link[=VisualAngle]{VisualAngle}). As a result, the degrees of visual
 #' angle per pixel need to be provided for the x- and y-dimensions (
-#'\code{dva_x} and \code{dva_y}).
-#' The function currently supports the following detection methods:
-#' - Identification by Dispersion Threshold  (I-DT)
-#' - Identification by Velocity Threshold (I-VT)
+#'\code{dva_x} and \code{dva_y}). By default, the function returns fixation data.
+#'To return saccade data, set `return_saccades= T`.
 #'
 #' @author Martin R. Vasilev, Yixin Ding
 #'
@@ -52,7 +50,7 @@ NULL
 #' If \code{return_saccades = TRUE}, the function returns saccade-level data
 #' with the following columns:
 #' \describe{
-#'   \item{\code{fix_id}}{Sequential event identifier for the detected saccade.}
+#'   \item{\code{sacc_id}}{Sequential event identifier for the detected saccade.}
 #'   \item{\code{sacc_start}}{Start time of the saccade, in the same units as \code{data$time}.}
 #'   \item{\code{sacc_end}}{End time of the saccade, in the same units as \code{data$time}.}
 #'   \item{\code{sacc_dur}}{Saccade duration, computed as \code{sacc_end - sacc_start}.}
