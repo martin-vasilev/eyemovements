@@ -17,3 +17,4 @@
 #'   \item{pupil_right}{Pupil diameter of the RIGHT eye in pixels}
 #' }
 #'
+"data_binocular"
