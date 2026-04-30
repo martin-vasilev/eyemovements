@@ -45,6 +45,10 @@ str(dat)
 #>  $ pupil: num  1753 1752 1749 1747 1746 ...
 ```
 
+When using your own data, note that it should contain the same columns
+(`time`, `x`, and `y`). At the moment, binocular data is not supported,
+but as a temporary solution, you can average out the x and y positions.
+
 ## Event detection using the Identification by Velocity Threshold (I-VT) method
 
 Some saccade detection algorithms such as I-VT require the use of
