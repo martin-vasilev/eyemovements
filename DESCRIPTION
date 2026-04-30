@@ -18,4 +18,6 @@ Depends:
 LazyData: true
 Imports:
     dplyr,
-    magrittr
+    magrittr,
+    zoo,
+    signal

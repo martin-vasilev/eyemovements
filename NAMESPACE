@@ -3,5 +3,6 @@
 export(DetectFixations)
 export(IVT)
 export(ManualEventLabeler)
+export(SmoothSamples)
 export(VisualAngle)
 importFrom(magrittr,"%>%")

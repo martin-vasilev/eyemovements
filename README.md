@@ -47,7 +47,9 @@ str(dat)
 
 When using your own data, note that it should contain the same columns
 (`time`, `x`, and `y`). At the moment, binocular data is not supported,
-but as a temporary solution, you can average out the x and y positions.
+but as a temporary solution, you can average out the x and y positions
+of the two eyes, take just the right eye, or run the data separately for
+each eye.
 
 ## Event detection using the Identification by Velocity Threshold (I-VT) method
 
