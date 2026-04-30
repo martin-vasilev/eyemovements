@@ -8,7 +8,7 @@ IVT(
   data,
   dva_x = 0.0187,
   dva_y = 0.0192,
-  vel_threshold = 40,
+  vel_threshold = 30,
   min_fix_dur = 50,
   return_saccades = FALSE,
   min_sacc_amplitude = 0.15

@@ -67,7 +67,7 @@ NULL
 
 IVT <- function(data, dva_x = 0.0187,
                             dva_y = 0.0192,
-                            vel_threshold = 40,
+                            vel_threshold = 30,
                             min_fix_dur = 50,
                             return_saccades = FALSE,
                             min_sacc_amplitude = 0.15){
@@ -152,6 +152,7 @@ IVT <- function(data, dva_x = 0.0187,
     if(length(min_fix_dur)>0){
 
       fix<- subset(fix, fix_dur>= min_fix_dur)
+      fix<- fix%>% dplyr::mutate(fix_id = dplyr::row_number())
 
     }
     return(fix)
@@ -194,6 +195,7 @@ IVT <- function(data, dva_x = 0.0187,
     if(length(min_sacc_amplitude)>0){
 
       sacc<- subset(sacc, sacc_amplitude_deg>= min_sacc_amplitude)
+      sacc<- sacc%>% dplyr::mutate(sacc_id = dplyr::row_number())
 
     }
 
