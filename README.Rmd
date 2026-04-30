@@ -13,6 +13,12 @@ knitr::opts_chunk$set(
 )
 
 options(tibble.width = Inf)  
+
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+
+## load libraries:
+library(tidyverse)
+library(patchwork)
 ```
 
 # eyemovements
@@ -51,9 +57,77 @@ dat= data_Oz
 str(dat)
 ```
 
-When using your own data, note that it should contain the same columns (`time`, `x`, and `y`). At the moment, binocular data is not supported, but as a temporary solution, you can average out the x and y positions of the two eyes, take just the right eye, or run the data separately for each eye.
+When using your own data, note that it should contain the same columns (`time`, `x`, and `y`), **using the exact same spelling**. Binocular data is not yet supported, but as a temporary solution, you can average out the x and y positions of the two eyes, take just the right eye, or run the data separately for each eye.
 
-## Event detection using the Identification by Velocity Threshold (I-VT) method
+## Data smoothing
+
+Before detecting events (saccades, fixations) it is usually helpful to filter the raw gaze positions to reduce noise. The `SmoothSamples()` function provides several algorithms for data smoothing such as Mean/Median moving window, Savitzky-Golay, etc. The exact filter can be specified with the `method` argument in the function (e.g., `Mean`, `Median`, `SG`).
+
+For mean/median filtering, you can provide the moving window size. For data with high temporal resolution (e.g., 500-1000Hz), 5-sample moving window tends to work well. This can be reduced to 3 for low-sampling applications (though note that the value has to be odd).
+
+```{r smoothing1}
+# Moving average filtering:
+filtered_dat_mean<- SmoothSamples(data = data_Oz, method = "Mean", window_size = 5)
+
+# Moving median filtering:
+filtered_dat_median<- SmoothSamples(data = data_Oz, method = "Median", window_size = 5)
+
+```
+
+Other filters such as Savitzky-Golay can also be used. Here, the filter order (`p`) and length (`n`) need to be specified. 
+
+
+```{r smoothing2}
+filtered_dat_SG<- SmoothSamples(data = data_Oz, method = "SG", p= 5, n= 23)
+```
+
+```{r smooth_plot, echo=F}
+
+f1<- filtered_dat_mean[1:250,]
+f2<- filtered_dat_median[1:250,]
+f3<- filtered_dat_SG[1:250,]
+gt<- data_Oz[1:250,]
+
+f1$filter<- "Mean"
+f2$filter<- "Median"
+f3$filter<- "Savitzky-Golay"
+gt$filter<- "Raw samples"
+
+f1$time<- 1:nrow(f1)
+f2$time<- 1:nrow(f2)
+f3$time<- 1:nrow(f3)
+gt$time<- 1:nrow(gt)
+
+f<- rbind(f1, f2, f3, gt)
+
+x<- f%>%
+  mutate(filter= fct_relevel(filter, 'Raw samples',
+                             'Mean', 'Median', 'Savitzky-Golay'))%>%
+  ggplot(aes(x = time)) +
+#  geom_point(aes(y = x), colour = "grey70", size = 0.1, alpha = 0.5) +
+  geom_line(aes(y = x, colour = filter), linewidth = .6) +
+  theme_bw()+
+  theme(legend.position = 'none')
+
+y<- f%>%
+  mutate(filter= fct_relevel(filter, 'Raw samples',
+                             'Mean', 'Median', 'Savitzky-Golay'))%>%
+  ggplot(aes(x = time)) +
+#  geom_point(aes(y = x), colour = "grey70", size = 0.1, alpha = 0.5) +
+  geom_line(aes(y = y, colour = filter), linewidth = .6) +
+  theme_bw()+
+  theme(legend.position = 'right')
+
+```
+
+```{r, out.width="70%", echo=FALSE}
+x/y
+```
+
+
+## Event detection 
+
+### Velocity Threshold (I-VT) method
 
 Some saccade detection algorithms such as I-VT require the use of degrees of visual angle (dva). For these to work, the degrees need to be calculated for your design. For this you need to know:
 
@@ -77,7 +151,7 @@ Using the dva values above, we can parse the data for fixations/ saccades using 
 To detect fixations, we can put the desired arguments together with the Oz data:
 
 ```{r IVT_fixations}
-fix<- IVT(data = dat,
+fix<- IVT(data = filtered_dat_mean,
           dva_x = 0.01865554,
           dva_y = 0.01919689,
           vel_threshold = 30,
@@ -100,7 +174,7 @@ To detect saccades, we can use the same arguments but set `return_saccades` to `
 
 ```{r IVT_saccades}
 
-sacc<- IVT(data = dat,
+sacc<- IVT(data = filtered_dat_mean,
           dva_x = 0.01865554,
           dva_y = 0.01919689,
           vel_threshold = 30, 

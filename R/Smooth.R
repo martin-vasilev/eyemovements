@@ -38,6 +38,7 @@ SmoothSamples <- function(data, method= "Mean",
   ## Mean filter:
   if(method== "Mean"){
 
+    # apply to x positions:
     data$x <- zoo::rollapply(
       data$x,
       width = window_size,
@@ -46,6 +47,7 @@ SmoothSamples <- function(data, method= "Mean",
       fill = NA
     )
 
+    # apply to y positions:
     data$y <- zoo::rollapply(
       data$y,
       width = window_size,
@@ -59,6 +61,7 @@ SmoothSamples <- function(data, method= "Mean",
   ## Median filter:
   if(method== "Median"){
 
+    # apply to x positions:
     data$x <- zoo::rollapply(
       data$x,
       width = window_size,
@@ -67,6 +70,7 @@ SmoothSamples <- function(data, method= "Mean",
       fill = NA
     )
 
+    # apply to y positions:
     data$y <- zoo::rollapply(
       data$y,
       width = window_size,
@@ -77,12 +81,15 @@ SmoothSamples <- function(data, method= "Mean",
 
   }
 
-
   ## Savitzky-Golay filter:
   if(method== "SG"){
 
-    data$x<- sgolayfilt(x = data$x, p = p, n = n)
-    data$y<- sgolayfilt(x = data$y, p = p, n = n)
+    # remove NAs (if present):
+    data<- na.omit(data)
+
+    # apply filter to x and y positions:
+    data$x<- signal::sgolayfilt(x = data$x, p = p, n = n)
+    data$y<- signal::sgolayfilt(x = data$y, p = p, n = n)
 
   }
 

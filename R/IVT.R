@@ -2,7 +2,7 @@
 NULL
 
 
-#' Detect fixations or saccades from eye samples using the Identification by Velocity Threshold  (I-VT) method
+#' Detect fixations or saccades using the Identification by Velocity Threshold  (I-VT) method
 #'
 #'This function detects fixations or saccades from raw eye position samples
 #'using the I-VT algortiythm. Most algorithms
