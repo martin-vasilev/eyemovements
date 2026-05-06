@@ -12,7 +12,6 @@ Description: What the package does (one paragraph).
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.2
 Depends: 
     R (>= 3.5)
 LazyData: true
@@ -21,3 +20,4 @@ Imports:
     magrittr,
     zoo,
     signal
+Config/roxygen2/version: 8.0.0

@@ -15,7 +15,7 @@ NULL
 #' @author Martin R. Vasilev, Yixin Ding
 #'
 #' @param data A data frame containing the raw data samples.
-#'  Must include at least the following columns: "time", "x", and "y".
+#'  Must include at least the following columns: "time", "x", and "y". Note that time must be measured in milliseconds
 #'
 #' @param dva_x Degrees of visual angle per pixel (x dimension)
 #'
@@ -28,8 +28,7 @@ NULL
 #' @param return_saccades Logical. If \code{FALSE} (default), return fixations.
 #' If \code{TRUE}, return saccades instead.
 #'
-#' @param min_sac_samples Minimum number of samples required to classify a saccade (I-VT).
-#' Used to remove spurious 1-sample velocity spikes.
+#' @param min_sacc_amplitude: Minimum saccade amplitude in degrees (if using saccade detection). By default, this is set to 0.15.
 #'
 #' @return A data frame with one row per detected event. The columns depend on
 #' whether fixations or saccades are returned.
@@ -85,7 +84,7 @@ IVT <- function(data, dva_x = 0.0187,
 
   # check required variables are present:
   if (!all(c("time", "x", "y") %in% names(data))) {
-    stop("The following variables are required for the analysis: 'time', 'x', and 'y'. Please make sure you use the exact same naming.")
+    stop("The following variables are required for the analysis: 'time', 'x', and 'y'. Please make sure you use the exact same spelling.")
   }
 
 
