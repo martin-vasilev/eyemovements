@@ -5,7 +5,7 @@
 #' This data contains one trial of a participant
 #' reading a passage from the "Little Wizard Stories of Oz".
 #' The data is taken from Slattery and Vasilev (2019) and was
-#' recorded with an Eyelink 1000 (at 1000 Hz).
+#' recorded with an Eyelink 1000 (at 1000 Hz), monocularly from the right eye.
 #'
 #'
 #'

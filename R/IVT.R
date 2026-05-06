@@ -33,6 +33,7 @@ NULL
 #' @return A data frame with one row per detected event. The columns depend on
 #' whether fixations or saccades are returned.
 #'
+#'
 #' If \code{return_saccades = FALSE}, the function returns fixation-level data
 #' with the following columns:
 #' \describe{
@@ -62,6 +63,15 @@ NULL
 #'   \item{\code{peak_velocity_deg}}{Maximum sample-to-sample velocity during the saccade, in degrees/second.}
 #'   \item{\code{n_samples}}{Number of samples contributing to the saccade.}
 #' }
+#'
+#' @references
+#' Salvucci, D. D., & Goldberg, J. H. (2000).
+#' Identifying fixations and saccades in eye-tracking protocols.
+#' In \emph{Proceedings of the 2000 Symposium on Eye Tracking
+#' Research & Applications} (pp. 71--78).
+#' New York: ACM Press.
+#' \doi{10.1145/355017.355028}
+#'
 #' @export
 
 IVT <- function(data, dva_x = 0.0187,

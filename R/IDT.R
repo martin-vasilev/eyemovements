@@ -8,7 +8,7 @@ NULL
 #'requires calculations based on visual angle (see
 #' \link[=VisualAngle]{VisualAngle}). As a result, the degrees of visual
 #' angle per pixel need to be provided for the x- and y-dimensions (
-#'\code{dva_x} and \code{dva_y}).
+#'\code{dva_x} and \code{dva_y}). While saccade data can be outputted, note that this algorithm is not optimised for saccade detection.
 #'
 #' @author Martin R. Vasilev, Yixin Ding
 #'
@@ -27,7 +27,6 @@ NULL
 #'
 #' @param return_saccades Logical. If \code{FALSE} (default), return fixations.
 #' If \code{TRUE}, return saccades instead.
-#'
 #'
 #' If \code{return_saccades = FALSE}, the function returns fixation-level data
 #' with the following columns:
@@ -58,6 +57,15 @@ NULL
 #'   \item{\code{peak_velocity_deg}}{Maximum sample-to-sample velocity during the saccade, in degrees/second.}
 #'   \item{\code{n_samples}}{Number of samples contributing to the saccade.}
 #' }
+#'
+#'
+#' @references
+#' Salvucci, D. D., & Goldberg, J. H. (2000).
+#' Identifying fixations and saccades in eye-tracking protocols.
+#' In \emph{Proceedings of the 2000 Symposium on Eye Tracking
+#' Research & Applications} (pp. 71--78).
+#' New York: ACM Press.
+#' \doi{10.1145/355017.355028}
 #' @export
 
 IDT <- function(data, dva_x = 0.0187,

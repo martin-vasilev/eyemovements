@@ -74,6 +74,14 @@ angle per pixel need to be provided for the x- and y-dimensions (
 \code{dva_x} and \code{dva_y}). By default, the function returns fixation data.
 To return saccade data, set \code{return_saccades= T}.
 }
+\references{
+Salvucci, D. D., & Goldberg, J. H. (2000).
+Identifying fixations and saccades in eye-tracking protocols.
+In \emph{Proceedings of the 2000 Symposium on Eye Tracking
+Research & Applications} (pp. 71--78).
+New York: ACM Press.
+\doi{10.1145/355017.355028}
+}
 \author{
 Martin R. Vasilev, Yixin Ding
 }

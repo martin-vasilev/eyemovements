@@ -67,7 +67,15 @@ using the Identification by Dispersion Threshold  (I-DT). Note that the algorith
 requires calculations based on visual angle (see
 \link[=VisualAngle]{VisualAngle}). As a result, the degrees of visual
 angle per pixel need to be provided for the x- and y-dimensions (
-\code{dva_x} and \code{dva_y}).
+\code{dva_x} and \code{dva_y}). While saccade data can be outputted, note that this algorithm is not optimised for saccade detection.
+}
+\references{
+Salvucci, D. D., & Goldberg, J. H. (2000).
+Identifying fixations and saccades in eye-tracking protocols.
+In \emph{Proceedings of the 2000 Symposium on Eye Tracking
+Research & Applications} (pp. 71--78).
+New York: ACM Press.
+\doi{10.1145/355017.355028}
 }
 \author{
 Martin R. Vasilev, Yixin Ding
