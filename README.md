@@ -80,11 +80,23 @@ order (`p`) and length (`n`) need to be specified.
 filtered_dat_SG<- SmoothSamples(data = data_Oz, method = "SG", p= 5, n= 23)
 ```
 
-<img src="man/figures/README-unnamed-chunk-2-1.png" width="70%" />
+<img src="man/figures/README-unnamed-chunk-2-1.png" alt="" width="70%" />
 
-## Event detection
+## Event detection (Saccades/ Fixations)
 
-### Velocity Threshold (I-VT) method
+Below we outline the available methods in the package for detecting
+fixations and saccades.
+
+### Identification by Velocity Threshold (I-VT) method
+
+One of the most common ways of identifying saccades/ fixations is based
+on their velocities. This relies on the assumption that sample-to-sample
+velocities are low during fixations but high during saccades.
+Velocity-based algorithms typically use a velocity threshold (which can
+be either fixed or adaptive). Samples that exceed the threshold are
+deemed to be in a saccade, whereas samples that are under the threshold
+are deemed to be in a fixation. The I-VT method uses a fixed velocity
+threshold, which can be specified by the user.
 
 Some saccade detection algorithms such as I-VT require the use of
 degrees of visual angle (dva). For these to work, the degrees need to be
@@ -130,13 +142,13 @@ To detect fixations, we can put the desired arguments together with the
 Oz data:
 
 ``` r
-fix<- IVT(data = filtered_dat_mean,
+fix_IVT<- IVT(data = filtered_dat_mean,
           dva_x = 0.01865554,
           dva_y = 0.01919689,
           vel_threshold = 30,
           min_fix_dur = 50)
 
-head(fix)
+head(fix_IVT)
 #> # A tibble: 6 × 8
 #>   fix_id fix_start fix_end     x     y fix_dur avg_velocity n_samples
 #>    <int>     <dbl>   <dbl> <dbl> <dbl>   <dbl>        <dbl>     <int>
@@ -170,13 +182,13 @@ Eyelink parser uses). However, this can be turned off by setting
 
 ``` r
 
-sacc<- IVT(data = filtered_dat_mean,
+sacc_IVT<- IVT(data = filtered_dat_mean,
           dva_x = 0.01865554,
           dva_y = 0.01919689,
           vel_threshold = 30, 
           return_saccades = TRUE)
 
-head(sacc)
+head(sacc_IVT)
 #> # A tibble: 6 × 12
 #>   sacc_id sacc_start sacc_end sacc_dur x_start y_start x_end y_end
 #>     <int>      <dbl>    <dbl>    <dbl>   <dbl>   <dbl> <dbl> <dbl>
@@ -214,3 +226,103 @@ The function outputs the following variables for fixations:
 - `peak_velocity_deg`: maximum sample-to-sample velocity during the
   saccade, in degrees/second
 - `n_samples`: number of samples contributing to the saccade
+
+### Identification by Dispersion Threshold (I-DT) method
+
+An alternative to velocity-based methods is to use sample-to-sample
+dispersion (i.e., how widely dispersed individual samples are in space).
+This method relies on the assumption that dispersion will be low during
+fixations because the eyes will oscillate around the same narrow area
+and samples will be clustered closely in space. This can be easily by
+plotting the raw x and y samples. The “blobs” of samples (where a lot of
+them occur in the same small area) are the fixations.
+
+<img src="man/figures/README-blob_plot-1.png" alt="" width="50%" />
+
+The I-DT method works by starting with a minimum fixation window
+(`window_threshold`), set in the package by default to 50ms for
+compatibility with I-VT. The algorithm checks if the samples within the
+fixation window exceed a fixed dispersion threshold (`disp_threshold`,
+set by default to 1 deg). If this is not the case, then the window keeps
+“growing” to the right by adding additional samples until the threshold
+is exceeded. The fixation is then terminated and recorded. If the
+initial window already exceeds the threshold, then the first sample is
+removed on an iterative basis until the dispersion falls below the
+threshold. The end point of the fixation is then determined by the same
+process, as described above.
+
+To detect fixations, we can use the `IDT()` function with the
+mean-filter Oz data:
+
+``` r
+fix_IDT<- IDT(data = filtered_dat_mean,
+          dva_x = 0.01865554,
+          dva_y = 0.01919689,
+          window_threshold = 50,
+          disp_threshold = 1)
+
+head(fix_IDT)
+#>   fix_id fix_start fix_end        x        y fix_dur fix_dispersion_deg
+#> 1      1   1322956 1323251 961.6485 537.5331     295          0.8317924
+#> 2      2   1323289 1323372 511.6648 201.2226      83          0.9924649
+#> 3      3   1323373 1323543 518.1750 219.4989     170          0.9103121
+#> 4      4   1323545 1323929 588.2062 196.6942     384          0.9519623
+#> 5      5   1323938 1324169 678.8529 195.5512     231          0.9501383
+#> 6      6   1324179 1324308 780.8780 200.3995     129          0.9990617
+#>   n_samples
+#> 1       296
+#> 2        84
+#> 3       171
+#> 4       385
+#> 5       232
+#> 6       130
+```
+
+The function outputs the following variables for fixations:
+
+- `fix_id`: fixation ID in the detected sequence
+- `fix_start`: start of fixation timestamp
+- `fix_end`: end of fixation timestamp
+- `x`: mean x pixel coordinate of the samples making up the fixation
+- `y`: mean y pixel coordinate of the samples making up the fixation
+- `fix_dur`: fixation duration (defined as `fix_end`- `fix_start`)
+- `fix_dispersion_deg`: average dispersion (in deg) of the samples
+  making up the fixation
+- `n_samples`: number of samples making up the fixation
+
+The `IDT()` function can also return saccades, which are defined as
+intervals of non-fixations. To do so, `return_saccades` needs to be set
+to `TRUE`. This is provided mostly for comparability purposes. However,
+some caution needs to be exercised, as the I-DT method is not optimised
+for saccade detection.
+
+``` r
+
+sacc_IDT<- IDT(data = filtered_dat_mean,
+          dva_x = 0.01865554,
+          dva_y = 0.01919689,
+          window_threshold = 50,
+          disp_threshold = 1, 
+          return_saccades = TRUE)
+
+head(sacc_IDT)
+#> # A tibble: 6 × 11
+#>   sacc_id sacc_start sacc_end sacc_dur x_start y_start x_end y_end
+#>     <int>      <dbl>    <dbl>    <dbl>   <dbl>   <dbl> <dbl> <dbl>
+#> 1       1    1323251  1323289       38    962.    538.  512.  201.
+#> 2       2    1323372  1323373        1    512.    201.  518.  219.
+#> 3       3    1323543  1323545        2    518.    219.  588.  197.
+#> 4       4    1323929  1323938        9    588.    197.  679.  196.
+#> 5       5    1324169  1324179       10    679.    196.  781.  200.
+#> 6       6    1324379  1324380        1    785.    205.  861.  209.
+#>   sacc_amplitude_deg avg_velocity_deg peak_velocity_deg
+#>                <dbl>            <dbl>             <dbl>
+#> 1             10.6              258.              350. 
+#> 2              0.371             10.5              10.6
+#> 3              1.38             121.              123. 
+#> 4              1.69              88.4             114. 
+#> 5              1.91             103.              129. 
+#> 6              1.44              82.8              89.3
+```
+
+The function outputs the same saccade variables as I-VT (see above).

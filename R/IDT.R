@@ -153,8 +153,8 @@ IDT <- function(data, dva_x = 0.0187,
           'x'      = mean(data$x[start:last_good_end], na.rm=TRUE),
           'y'      = mean(data$y[start:last_good_end], na.rm=TRUE),
           'fix_dur' = data$time[last_good_end] - data$time[start],
-          'fix_dispersion_deg' = dispersion_deg(start, last_good_end)#,
-         # 'n_samples'  = last_good_end - start+1
+          'fix_dispersion_deg' = dispersion_deg(start, last_good_end),
+          'n_samples'  = length(data$y[start:last_good_end])
         ))
 
       # advance start and fix_id:
