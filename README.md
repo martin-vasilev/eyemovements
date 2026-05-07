@@ -455,7 +455,7 @@ saccades. Larger values make the algorithm more conservative and will
 detect fewer saccades.
 
 ``` r
-sacc_EK03_lam4 <- EngbertKliegl03(
+sacc_EK03_lam6 <- EngbertKliegl03(
   data = filtered_dat_mean,
   dva_x = 0.01865554,
   dva_y = 0.01919689,
@@ -471,7 +471,7 @@ sacc_EK03_lam12 <- EngbertKliegl03(
   return_saccades = TRUE
 )
 
-nrow(sacc_EK03_lam4)
+nrow(sacc_EK03_lam6)
 #> [1] 149
 nrow(sacc_EK03_lam12)
 #> [1] 137
