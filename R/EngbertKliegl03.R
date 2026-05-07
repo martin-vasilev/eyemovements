@@ -4,8 +4,22 @@ NULL
 
 #' Detect fixations or saccades using the Engbert and Kliegl (2003) algorithm
 #'
+#' Detects fixations or saccades from eye-tracking samples using the velocity-based
+#' algorithm proposed by Engbert and Kliegl (2003). Velocities are
+#' estimated using a 5-sample moving window and saccades are identified
+#' using robust median-based elliptical velocity thresholds. The \code{lambda}
+#' parameter determines the sensitivity of the algorithm. Note that
+#' Engbert and Kliegl (2003) use a default lambda of 6 for microsaccade research.
+#' However, users can increase that for other applications (espcially if a lot of short fixations are not desirable).
+
 #' By default, the function returns fixation data.
 #'To return saccade data, set `return_saccades= T`.
+#'
+#' Note that the function works without degrees of visual angle, being supplied.
+#' However, we strongly recommend that \code{dva_x} and \code{dva_y} are provided
+#' (especially if saccades are of interest) so that velocities and amplitudes
+#' can be returned in deg/s and deg, respectively (see
+#' \link[=VisualAngle]{VisualAngle}).
 #'
 #' @author Martin R. Vasilev
 #'
@@ -60,12 +74,10 @@ NULL
 #' }
 #'
 #' @references
-#' Salvucci, D. D., & Goldberg, J. H. (2000).
-#' Identifying fixations and saccades in eye-tracking protocols.
-#' In \emph{Proceedings of the 2000 Symposium on Eye Tracking
-#' Research & Applications} (pp. 71--78).
-#' New York: ACM Press.
-#' \doi{10.1145/355017.355028}
+#' Engbert, R., & Kliegl, R. (2003).
+#' Microsaccades uncover the orientation of covert attention.
+#' \emph{Vision Research, 43}(9), 1035--1045.
+#' \doi{10.1016/S0042-6989(03)00084-1}
 #'
 #' @export
 
@@ -238,11 +250,53 @@ EngbertKliegl03 <- function(data,
                 fix_dur= duration,
                 x= mean_x,
                 y= mean_y,
-                avg_velocity= mean_velocity
-
+                avg_velocity= mean_velocity,
+                n_samples= length
                 )
 
     return(fix)
+
+  }else{
+
+    # return saccade data:
+    sacc<- runs%>%
+      filter(is_saccade==T)
+
+    # truncate saccades based on amplitude if degrees are provided:
+    if(unit_amp=="deg"){
+      sacc<-  sacc%>%
+        filter(amplitude>= min_sacc_amplitude)
+    }
+
+    sacc<- sacc%>%
+      transmute(sacc_id = dplyr::row_number(),
+                sacc_start= start_time,
+                sacc_end= end_time,
+                sacc_dur= duration,
+                x_start= start_x,
+                y_start= start_y,
+                x_end= end_x,
+                y_end= end_y,
+                sacc_amplitude= amplitude,
+                avg_velocity= mean_velocity,
+                peak_velocity= peak_velocity,
+                n_samples= length
+                )
+
+    # Rename if degrees were used
+    if(!is.null(dva_x) & !is.null(dva_y)) {
+
+      sacc <- sacc %>%
+        rename(
+          sacc_amplitude_deg = sacc_amplitude,
+          avg_velocity_deg = avg_velocity,
+          peak_velocity_deg = peak_velocity
+        )
+
+    }
+
+    return(sacc)
+
 
   }
 
