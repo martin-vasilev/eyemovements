@@ -326,3 +326,160 @@ head(sacc_IDT)
 ```
 
 The function outputs the same saccade variables as I-VT (see above).
+
+### Identification by Engbert and Kliegl’s (2003) method for (micro)saccades
+
+The `EngbertKliegl03()` function implements the velocity-based algorithm
+described by Engbert and Kliegl (2003). The method was originally
+developed for detecting microsaccades during fixation, but it can also
+be useful as an adaptive saccade-detection method because the velocity
+threshold is estimated from the noise level in the data.
+
+Unlike the standard I-VT method, this algorithm does not require the
+user to specify a fixed velocity threshold. Instead, horizontal and
+vertical velocities are estimated using a 5-sample moving window, and
+saccades are detected as samples whose velocity falls outside an
+adaptive elliptical threshold. The size of this threshold is controlled
+by the `lambda` argument. Engbert and Kliegl (2003) used `lambda = 6`,
+which is also the default here.
+
+As with the other algorithms, the input data must contain the columns
+`time`, `x`, and `y`, where `time` is in milliseconds and `x`/`y` are
+gaze positions in pixels.
+
+Although the function can be used without converting pixels to degrees
+of visual angle, it is recommended to provide `dva_x` and `dva_y` when
+saccade amplitude and velocity are of interest. If these are supplied,
+the gaze positions are still returned in pixels, but saccade amplitudes
+and velocities are returned in degrees and degrees/second.
+
+``` r
+fix_EK03 <- EngbertKliegl03(
+  data = filtered_dat_mean,
+  dva_x = 0.01865554,
+  dva_y = 0.01919689,
+  lambda = 6,
+  min_fix_dur = 50
+)
+
+head(fix_EK03)
+#> # A tibble: 6 × 8
+#>   fix_id fix_start fix_end fix_dur     x     y avg_velocity n_samples
+#>    <int>     <dbl>   <dbl>   <dbl> <dbl> <dbl>        <dbl>     <int>
+#> 1      1   1322956 1323244     288  962.  538.         5.53       289
+#> 2      2   1323323 1323533     210  517.  217.         5.16       211
+#> 3      3   1323565 1323748     183  589.  199.         5.11       184
+#> 4      4   1323766 1323925     159  588.  194.         5.25       160
+#> 5      5   1323954 1324165     211  680.  196.         5.18       212
+#> 6      6   1324197 1324367     170  782.  202.         5.22       171
+```
+
+By default, the function returns fixations. The output contains:
+
+- `fix_id`: fixation ID in the detected sequence
+- `fix_start`: start of fixation timestamp
+- `fix_end`: end of fixation timestamp
+- `fix_dur`: fixation duration, defined as `fix_end - fix_start`
+- `x`: mean horizontal gaze position during the fixation, in pixels
+- `y`: mean vertical gaze position during the fixation, in pixels
+- `avg_velocity`: mean velocity during the fixation
+- `n_samples`: number of samples contributing to the fixation
+
+To return saccades instead, set `return_saccades = TRUE`.
+
+``` r
+sacc_EK03 <- EngbertKliegl03(
+  data = filtered_dat_mean,
+  dva_x = 0.01865554,
+  dva_y = 0.01919689,
+  lambda = 6,
+  return_saccades = TRUE
+)
+
+head(sacc_EK03)
+#> # A tibble: 6 × 12
+#>   sacc_id sacc_start sacc_end sacc_dur x_start y_start x_end y_end
+#>     <int>      <dbl>    <dbl>    <dbl>   <dbl>   <dbl> <dbl> <dbl>
+#> 1       1    1323245  1323300       55    961.    537.  504.  183.
+#> 2       2    1323307  1323318       11    502.    186.  511.  200.
+#> 3       3    1323534  1323552       18    520.    222.  584.  201.
+#> 4       4    1323749  1323757        8    587.    203.  589.  194.
+#> 5       5    1323926  1323953       27    589.    194.  675.  196.
+#> 6       6    1324166  1324190       24    678.    194.  776.  198.
+#>   sacc_amplitude_deg avg_velocity_deg peak_velocity_deg n_samples
+#>                <dbl>            <dbl>             <dbl>     <int>
+#> 1             10.9              196.              344.         56
+#> 2              0.315             27.5              35.9        12
+#> 3              1.27              68.2             120.         19
+#> 4              0.171             22.2              25.4         9
+#> 5              1.60              58.9             112.         28
+#> 6              1.83              74.1             126.         25
+```
+
+When `return_saccades = TRUE`, the function returns:
+
+- `sacc_id`: saccade ID in the detected sequence
+- `sacc_start`: start of saccade timestamp
+- `sacc_end`: end of saccade timestamp
+- `sacc_dur`: saccade duration, defined as `sacc_end - sacc_start`
+- `x_start`: horizontal gaze position at saccade onset, in pixels
+- `y_start`: vertical gaze position at saccade onset, in pixels
+- `x_end`: horizontal gaze position at saccade offset, in pixels
+- `y_end`: vertical gaze position at saccade offset, in pixels
+- `sacc_amplitude_deg`: saccade amplitude in degrees of visual angle
+- `avg_velocity_deg`: mean velocity during the saccade, in
+  degrees/second
+- `peak_velocity_deg`: peak velocity during the saccade, in
+  degrees/second
+- `n_samples`: number of samples contributing to the saccade
+
+Very small saccades can be removed using the `min_sacc_amplitude`
+argument. By default, this is set to `0.15`, meaning that saccades
+smaller than 0.15 degrees are discarded when `dva_x` and `dva_y` are
+supplied. To keep all detected saccades, set:
+
+``` r
+sacc_EK03 <- EngbertKliegl03(
+  data = filtered_dat_mean,
+  dva_x = 0.01865554,
+  dva_y = 0.01919689,
+  lambda = 6,
+  return_saccades = TRUE,
+  min_sacc_amplitude = 0
+)
+```
+
+The value of `lambda` controls how conservative the detection is.
+Smaller values make the algorithm more sensitive and will detect more
+saccades. Larger values make the algorithm more conservative and will
+detect fewer saccades.
+
+``` r
+sacc_EK03_lam4 <- EngbertKliegl03(
+  data = filtered_dat_mean,
+  dva_x = 0.01865554,
+  dva_y = 0.01919689,
+  lambda = 6,
+  return_saccades = TRUE
+)
+
+sacc_EK03_lam12 <- EngbertKliegl03(
+  data = filtered_dat_mean,
+  dva_x = 0.01865554,
+  dva_y = 0.01919689,
+  lambda = 12,
+  return_saccades = TRUE
+)
+
+nrow(sacc_EK03_lam4)
+#> [1] 149
+nrow(sacc_EK03_lam12)
+#> [1] 137
+```
+
+In general, `lambda = 6` is a sensible starting point if the goal is to
+reproduce Engbert and Kliegl’s original microsaccade-detection approach.
+For noisier data, or for applications where very short events are
+undesirable, higher values may be more appropriate. For cognitive
+research (e.g., reading), the algorithm performs better with values
+around 10-12.
