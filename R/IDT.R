@@ -1,7 +1,7 @@
 #' @importFrom magrittr %>%
 NULL
 
-#' Detect fixations or saccades from eye samples using the Identification by Dispersion Threshold  (I-DT) method
+#' Detect fixations or saccades using the Identification by Dispersion Threshold  (I-DT) method
 #'
 #'This function detects fixations from raw eye position samples
 #'using the Identification by Dispersion Threshold  (I-DT). Note that the algorithm

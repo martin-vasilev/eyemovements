@@ -1,5 +1,9 @@
 ---
-output: github_document
+output:
+  github_document:
+    toc: true
+    toc_depth: 3
+    number_sections: false
 ---
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
@@ -204,7 +208,7 @@ The function outputs the following variables for fixations:
 
 ### Identification by Dispersion Threshold (I-DT) method
 
-An alternative to velocity-based methods is to use sample-to-sample dispersion (i.e., how widely dispersed individual samples are in space). This method relies on the assumption that dispersion will be low during fixations because the eyes will oscillate around the same narrow area and samples will be clustered closely in space. This can be easily by plotting the raw x and y samples. The "blobs" of samples (where a lot of them occur in the same small area) are the fixations.
+An alternative to velocity-based methods is to use sample-to-sample dispersion (i.e., how widely dispersed individual samples are in space). This method relies on the assumption that dispersion will be low during fixations because the eyes will oscillate around the same narrow area and samples will be clustered closely in space. This can be easily seen by plotting the raw x and y samples. The "blobs" of samples (where a lot of them occur in the same small area) are the fixations.
 
 ```{r, blob_plot, out.width="50%", echo=FALSE}
 filtered_dat_mean[1:5000,]%>%
@@ -357,4 +361,107 @@ nrow(sacc_EK03_lam12)
 In general, `lambda = 6` is a sensible starting point if the goal is to reproduce Engbert and Kliegl's original microsaccade-detection approach. For noisier data, or for applications where very short events are undesirable, higher values may be more appropriate. For cognitive research (e.g., reading), the algorithm performs better with values around 10-12.
 
 
+### Identification by Hidden Markov Models (I-HMM)
 
+The `IHMM()` function implements a Hidden Markov Model (HMM) approach for detecting fixations and saccades from raw eye-tracking samples. The method is inspired by the Identification by Hidden Markov Models (I-HMM) approach outlined in Salvucci and Goldberg (2000).
+
+Unlike threshold-based methods such as I-VT or Engbert and Kliegl's (2003) algorithm, the I-HMM method does not require the user to specify an explicit velocity threshold. Instead, the algorithm assumes that the observed gaze velocities arise from a mixture of hidden states corresponding to fixations and saccades. These hidden states are estimated directly from the data using a Gaussian Hidden Markov Model fitted with the `depmixS4` package.
+
+The algorithm first computes sample-to-sample gaze velocities and then uses the Viterbi algorithm to infer the most likely sequence of hidden fixation and saccade states. By default, the function assumes two hidden states (`nstates = 2`), corresponding to fixation and saccade behaviour. An example can be seen below with the raw samples assigned to the "saccade" or "fixation" states.
+
+
+```{r IHMM_plot, echo=FALSE, out.width="80%", warning=FALSE, message=FALSE}
+ihmm_samples <- IHMM(
+  data = filtered_dat_mean,
+  dva_x = 0.01865554,
+  dva_y = 0.01919689,
+  return_samples = TRUE
+)
+
+ihmm_samples %>%
+  dplyr::slice(1:2000) %>%
+  ggplot(aes(x = x, y = y, colour = state)) +
+  geom_path(alpha = 0.35, linewidth = 0.4) +
+  geom_point(size = 0.6, alpha = 0.8) +
+  scale_y_reverse() +
+  coord_equal() +
+  theme_bw(14) +
+  labs(
+    title = "I-HMM state classification of raw gaze samples",
+    x = "Horizontal gaze position (pixels)",
+    y = "Vertical gaze position (pixels)",
+    colour = "Decoded state"
+  )
+
+```
+
+As with the other algorithms, the input data must contain the columns `time`, `x`, and `y`, where `time` is measured in milliseconds and `x`/`y` are gaze positions in pixels.
+
+Although the function can be used without converting pixels to degrees of visual angle, it is recommended to provide `dva_x` and `dva_y` when saccade amplitudes and velocities are of interest. If these are supplied, gaze positions are still returned in pixels, but saccade amplitudes and velocities are returned in degrees and degrees/second.
+
+To detect fixations using the I-HMM method:
+
+```{r IHMM_fixations}
+fix_IHMM <- IHMM(
+  data = filtered_dat_mean,
+  dva_x = 0.01865554,
+  dva_y = 0.01919689,
+  min_fix_dur = 50
+)
+
+head(fix_IHMM)
+```
+
+By default, the function returns fixation-level data containing:
+
+- `fix_id`: fixation ID in the detected sequence
+- `fix_start`: start of fixation timestamp
+- `fix_end`: end of fixation timestamp
+- `fix_dur`: fixation duration, defined as `fix_end - fix_start`
+- `x`: mean horizontal gaze position during the fixation, in pixels
+- `y`: mean vertical gaze position during the fixation, in pixels
+- `avg_velocity`: average sample-to-sample velocity during the fixation
+- `n_samples`: number of samples contributing to the fixation
+
+To return saccades instead, set `return_saccades = TRUE`. Note that this algorithm is not optimised for detecting saccades and other methods (such as I-VT, Engbert and Kliegl) will perform better. This option is provided for comparability.
+
+```{r IHMM_saccades}
+sacc_IHMM <- IHMM(
+  data = filtered_dat_mean,
+  dva_x = 0.01865554,
+  dva_y = 0.01919689,
+  return_saccades = TRUE
+)
+
+head(sacc_IHMM)
+```
+
+When `return_saccades = TRUE`, the function returns:
+
+- `sacc_id`: saccade ID in the detected sequence
+- `sacc_start`: start of saccade timestamp
+- `sacc_end`: end of saccade timestamp
+- `sacc_dur`: saccade duration, defined as `sacc_end - sacc_start`
+- `x_start`: horizontal gaze position at saccade onset, in pixels
+- `y_start`: vertical gaze position at saccade onset, in pixels
+- `x_end`: horizontal gaze position at saccade offset, in pixels
+- `y_end`: vertical gaze position at saccade offset, in pixels
+- `sacc_amplitude_deg`: saccade amplitude in degrees of visual angle
+- `avg_velocity_deg`: mean sample-to-sample velocity during the saccade, in degrees/second
+- `peak_velocity_deg`: peak sample-to-sample velocity during the saccade, in degrees/second
+- `n_samples`: number of samples contributing to the saccade
+
+Very small saccades can be removed using the `min_sacc_amplitude` argument. By default, this is set to `0.15`, meaning that saccades smaller than 0.15 degrees are discarded when degrees of visual angle are supplied. To keep all detected saccades, set:
+
+```{r IHMM_all_saccades, eval=FALSE}
+sacc_IHMM <- IHMM(
+  data = filtered_dat_mean,
+  dva_x = 0.01865554,
+  dva_y = 0.01919689,
+  return_saccades = TRUE,
+  min_sacc_amplitude = 0
+)
+```
+
+
+Compared to threshold-based approaches, the I-HMM method can be more flexible because it estimates the hidden fixation and saccade distributions directly from the data. However, because the model is fitted iteratively, it is also computationally slower than methods such as I-VT or Engbert and Kliegl's (2003) algorithm.

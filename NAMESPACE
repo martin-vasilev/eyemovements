@@ -2,6 +2,7 @@
 
 export(EngbertKliegl03)
 export(IDT)
+export(IHMM)
 export(IVT)
 export(ManualEventLabeler)
 export(SmoothSamples)

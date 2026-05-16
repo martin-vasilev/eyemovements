@@ -2,7 +2,7 @@
 % Please edit documentation in R/IDT.R
 \name{IDT}
 \alias{IDT}
-\title{Detect fixations or saccades from eye samples using the Identification by Dispersion Threshold  (I-DT) method}
+\title{Detect fixations or saccades using the Identification by Dispersion Threshold  (I-DT) method}
 \usage{
 IDT(
   data,

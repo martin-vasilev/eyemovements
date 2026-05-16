@@ -1,4 +1,19 @@
 
+- [eyemovements](#eyemovements)
+  - [Installation](#installation)
+  - [Sample data:](#sample-data)
+  - [Data smoothing](#data-smoothing)
+  - [Event detection (Saccades/
+    Fixations)](#event-detection-saccades-fixations)
+    - [Identification by Velocity Threshold (I-VT)
+      method](#identification-by-velocity-threshold-i-vt-method)
+    - [Identification by Dispersion Threshold (I-DT)
+      method](#identification-by-dispersion-threshold-i-dt-method)
+    - [Identification by Engbert and Kliegl’s (2003) method for
+      (micro)saccades](#identification-by-engbert-and-kliegls-2003-method-for-microsaccades)
+    - [Identification by Hidden Markov Models
+      (I-HMM)](#identification-by-hidden-markov-models-i-hmm)
+
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
 # eyemovements
@@ -233,9 +248,9 @@ An alternative to velocity-based methods is to use sample-to-sample
 dispersion (i.e., how widely dispersed individual samples are in space).
 This method relies on the assumption that dispersion will be low during
 fixations because the eyes will oscillate around the same narrow area
-and samples will be clustered closely in space. This can be easily by
-plotting the raw x and y samples. The “blobs” of samples (where a lot of
-them occur in the same small area) are the fixations.
+and samples will be clustered closely in space. This can be easily seen
+by plotting the raw x and y samples. The “blobs” of samples (where a lot
+of them occur in the same small area) are the fixations.
 
 <img src="man/figures/README-blob_plot-1.png" alt="" width="50%" />
 
@@ -483,3 +498,145 @@ For noisier data, or for applications where very short events are
 undesirable, higher values may be more appropriate. For cognitive
 research (e.g., reading), the algorithm performs better with values
 around 10-12.
+
+### Identification by Hidden Markov Models (I-HMM)
+
+The `IHMM()` function implements a Hidden Markov Model (HMM) approach
+for detecting fixations and saccades from raw eye-tracking samples. The
+method is inspired by the Identification by Hidden Markov Models (I-HMM)
+approach outlined in Salvucci and Goldberg (2000).
+
+Unlike threshold-based methods such as I-VT or Engbert and Kliegl’s
+(2003) algorithm, the I-HMM method does not require the user to specify
+an explicit velocity threshold. Instead, the algorithm assumes that the
+observed gaze velocities arise from a mixture of hidden states
+corresponding to fixations and saccades. These hidden states are
+estimated directly from the data using a Gaussian Hidden Markov Model
+fitted with the `depmixS4` package.
+
+The algorithm first computes sample-to-sample gaze velocities and then
+uses the Viterbi algorithm to infer the most likely sequence of hidden
+fixation and saccade states. By default, the function assumes two hidden
+states (`nstates = 2`), corresponding to fixation and saccade behaviour.
+An example can be seen below with the raw samples assigned to the
+“saccade” or “fixation” states.
+
+    #> converged at iteration 14 with logLik: -99043.35
+
+<img src="man/figures/README-IHMM_plot-1.png" alt="" width="80%" />
+
+As with the other algorithms, the input data must contain the columns
+`time`, `x`, and `y`, where `time` is measured in milliseconds and
+`x`/`y` are gaze positions in pixels.
+
+Although the function can be used without converting pixels to degrees
+of visual angle, it is recommended to provide `dva_x` and `dva_y` when
+saccade amplitudes and velocities are of interest. If these are
+supplied, gaze positions are still returned in pixels, but saccade
+amplitudes and velocities are returned in degrees and degrees/second.
+
+To detect fixations using the I-HMM method:
+
+``` r
+fix_IHMM <- IHMM(
+  data = filtered_dat_mean,
+  dva_x = 0.01865554,
+  dva_y = 0.01919689,
+  min_fix_dur = 50
+)
+#> converged at iteration 14 with logLik: -99043.35
+
+head(fix_IHMM)
+#> # A tibble: 6 × 8
+#>   fix_id fix_start fix_end fix_dur     x     y avg_velocity n_samples
+#>    <int>     <dbl>   <dbl>   <dbl> <dbl> <dbl>        <dbl>     <int>
+#> 1      1   1323012 1323245     233  962.  538.         5.49       234
+#> 2      2   1323325 1323534     209  517.  217.         5.76       210
+#> 3      3   1323569 1323681     112  590.  197.         5.29       113
+#> 4      4   1323686 1323748      62  588.  201.         4.98        63
+#> 5      5   1323759 1323925     166  588.  194.         6.18       167
+#> 6      6   1323955 1324165     210  680.  196.         5.76       211
+```
+
+By default, the function returns fixation-level data containing:
+
+- `fix_id`: fixation ID in the detected sequence
+- `fix_start`: start of fixation timestamp
+- `fix_end`: end of fixation timestamp
+- `fix_dur`: fixation duration, defined as `fix_end - fix_start`
+- `x`: mean horizontal gaze position during the fixation, in pixels
+- `y`: mean vertical gaze position during the fixation, in pixels
+- `avg_velocity`: average sample-to-sample velocity during the fixation
+- `n_samples`: number of samples contributing to the fixation
+
+To return saccades instead, set `return_saccades = TRUE`. Note that this
+algorithm is not optimised for detecting saccades and other methods
+(such as I-VT, Engbert and Kliegl) will perform better. This option is
+provided for comparability.
+
+``` r
+sacc_IHMM <- IHMM(
+  data = filtered_dat_mean,
+  dva_x = 0.01865554,
+  dva_y = 0.01919689,
+  return_saccades = TRUE
+)
+#> converged at iteration 14 with logLik: -99043.35
+
+head(sacc_IHMM)
+#> # A tibble: 6 × 12
+#>   sacc_id sacc_start sacc_end sacc_dur x_start y_start x_end y_end
+#>     <int>      <dbl>    <dbl>    <dbl>   <dbl>   <dbl> <dbl> <dbl>
+#> 1       1    1323246  1323324       78    960.    536.  513.  205.
+#> 2       2    1323535  1323553       18    521.    222.  585.  201.
+#> 3       3    1323749  1323758        9    587.    203.  590.  194.
+#> 4       4    1323926  1323954       28    589.    194.  676.  195.
+#> 5       5    1324166  1324190       24    678.    194.  776.  198.
+#> 6       6    1324363  1324395       32    782.    205.  858.  202.
+#>   sacc_amplitude_deg avg_velocity_deg peak_velocity_deg n_samples
+#>                <dbl>            <dbl>             <dbl>     <int>
+#> 1             10.5              146.              350.         79
+#> 2              1.26              69.0             123.         19
+#> 3              0.181             22.3              26.6        10
+#> 4              1.62              57.9             114.         29
+#> 5              1.83              74.7             129.         25
+#> 6              1.44              45.6             104.         33
+```
+
+When `return_saccades = TRUE`, the function returns:
+
+- `sacc_id`: saccade ID in the detected sequence
+- `sacc_start`: start of saccade timestamp
+- `sacc_end`: end of saccade timestamp
+- `sacc_dur`: saccade duration, defined as `sacc_end - sacc_start`
+- `x_start`: horizontal gaze position at saccade onset, in pixels
+- `y_start`: vertical gaze position at saccade onset, in pixels
+- `x_end`: horizontal gaze position at saccade offset, in pixels
+- `y_end`: vertical gaze position at saccade offset, in pixels
+- `sacc_amplitude_deg`: saccade amplitude in degrees of visual angle
+- `avg_velocity_deg`: mean sample-to-sample velocity during the saccade,
+  in degrees/second
+- `peak_velocity_deg`: peak sample-to-sample velocity during the
+  saccade, in degrees/second
+- `n_samples`: number of samples contributing to the saccade
+
+Very small saccades can be removed using the `min_sacc_amplitude`
+argument. By default, this is set to `0.15`, meaning that saccades
+smaller than 0.15 degrees are discarded when degrees of visual angle are
+supplied. To keep all detected saccades, set:
+
+``` r
+sacc_IHMM <- IHMM(
+  data = filtered_dat_mean,
+  dva_x = 0.01865554,
+  dva_y = 0.01919689,
+  return_saccades = TRUE,
+  min_sacc_amplitude = 0
+)
+```
+
+Compared to threshold-based approaches, the I-HMM method can be more
+flexible because it estimates the hidden fixation and saccade
+distributions directly from the data. However, because the model is
+fitted iteratively, it is also computationally slower than methods such
+as I-VT or Engbert and Kliegl’s (2003) algorithm.
