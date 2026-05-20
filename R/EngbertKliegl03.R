@@ -241,10 +241,10 @@ EngbertKliegl03 <- function(data,
 
     # select only fixation events and filter durations under the minimum:
     fix<- runs%>%
-      filter(is_saccade==F & duration>= min_fix_dur)
+      dplyr::filter(is_saccade==F & duration>= min_fix_dur)
 
     fix<- fix%>%
-      transmute(fix_id = dplyr::row_number(),
+      dplyr::transmute(fix_id = dplyr::row_number(),
                 fix_start= start_time,
                 fix_end= end_time,
                 fix_dur= duration,
@@ -260,16 +260,16 @@ EngbertKliegl03 <- function(data,
 
     # return saccade data:
     sacc<- runs%>%
-      filter(is_saccade==T)
+      dplyr::filter(is_saccade==T)
 
     # truncate saccades based on amplitude if degrees are provided:
     if(unit_amp=="deg"){
       sacc<-  sacc%>%
-        filter(amplitude>= min_sacc_amplitude)
+        dplyr::filter(amplitude>= min_sacc_amplitude)
     }
 
     sacc<- sacc%>%
-      transmute(sacc_id = dplyr::row_number(),
+      dplyr::transmute(sacc_id = dplyr::row_number(),
                 sacc_start= start_time,
                 sacc_end= end_time,
                 sacc_dur= duration,
